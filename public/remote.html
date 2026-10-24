@@ -149,6 +149,14 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .seg { display: inline-flex; background: var(--bg); border-radius: 10px; padding: 3px; gap: 2px; }
 .seg button { padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button.on { background: var(--tile); color: var(--fg); }
+.seg.wrap { flex-wrap: wrap; }
+.focus { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
+.focus .k { min-height: 40px; font-size: 13px; }
+.focus .k.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.learnrow { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.learnrow .ok { color: var(--ok); font-weight: 700; }
+.learnrow .todo { color: var(--muted); }
+.learning { background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
 
 @media (max-width: 1000px) {
   .app { grid-template-columns: minmax(0,1fr) 210px; grid-template-rows: auto minmax(0,1fr); }
@@ -202,6 +210,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
   <aside class="pad" id="pad">
     <button class="k closePad" id="closePad" type="button">Close ▾</button>
     <button class="k big power" data-key="POWER" type="button">⏻ Power</button>
+    <div class="focus" id="focus" hidden><span class="lbl">Keys go to</span><button class="k" data-focus="box" type="button">Box</button><button class="k" data-focus="tv" type="button">TV</button></div>
     <div class="vol">
       <div class="hdr"><span class="lbl" id="volFrom">Volume</span><span class="lvl" id="volLvl">–</span></div>
       <div class="bar" id="volBar"><i></i></div>
@@ -317,45 +326,59 @@ const DEMO_APPS = [
 ];
 function demoState() {
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('or.demo3') || 'null'); } catch {}
+  try { saved = JSON.parse(localStorage.getItem('or.demo4') || 'null'); } catch {}
   return saved || {
     demo: true, channelEnter: 'none',
     boxes: [
-      { id: 'living', name: 'Living Room', host: '192.168.1.50', status: 'ready', powered: true, volume: { level: 18, max: 100, muted: false }, volumeFrom: 'tv', app: 'com.altice.optimum.tv', lastChannel: '7',
+      { id: 'living', name: 'Living Room', host: '192.168.1.50', boxType: 'androidtv', boxLabel: 'Android TV box', hasBothSides: true, tvTakesKeys: true, focus: 'box', status: 'ready', powered: true, volume: { level: 18, max: 100, muted: false }, volumeFrom: 'tv', app: 'com.altice.optimum.tv', lastChannel: '7',
         tv: { brand: 'sony', host: '192.168.1.60', route: 'tv', hasPsk: true, status: 'ok', powered: true, frame: false, model: 'XR-65A80L (demo)', error: null, paired: true } },
-      { id: 'bedroom', name: 'Bedroom', host: '192.168.1.51', status: 'ready', powered: true, volume: null, volumeFrom: 'tv', app: 'com.netflix.ninja', lastChannel: null,
+      { id: 'bedroom', name: 'Bedroom', host: '192.168.1.51', boxType: 'androidtv', boxLabel: 'Android TV box', hasBothSides: true, tvTakesKeys: true, focus: 'box', status: 'ready', powered: true, volume: null, volumeFrom: 'tv', app: 'com.netflix.ninja', lastChannel: null,
         tv: { brand: 'samsung', host: '192.168.1.61', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: true, model: 'QN55LS03B (demo)', error: null, paired: true } },
-      { id: 'den', name: 'Den (TV only)', host: '', status: 'no-box', powered: null, volume: null, volumeFrom: 'tv', app: 'com.amazon.amazonvideo.livingroom', lastChannel: null,
+      { id: 'fl-family', name: 'Florida Family Room', host: '192.168.2.40', boxType: 'ir', boxLabel: 'Cable box (infrared)', status: 'ready', powered: true, volume: null, volumeFrom: 'tv', app: null, lastChannel: '7', hasBothSides: true, tvTakesKeys: true, focus: 'box',
+        irKeys: [['POWER','Power'],['CHANNEL_UP','Channel up'],['CHANNEL_DOWN','Channel down'],['LAST_CHANNEL','Last / Previous'],['GUIDE','Guide'],['INFO','Info'],['MENU','Menu'],['EXIT','Exit'],['BACK','Back'],['HOME','Home'],['DPAD_UP','Up'],['DPAD_DOWN','Down'],['DPAD_LEFT','Left'],['DPAD_RIGHT','Right'],['DPAD_CENTER','OK / Select'],['MEDIA_PLAY_PAUSE','Play / Pause'],['MEDIA_REWIND','Rewind'],['MEDIA_FAST_FORWARD','Fast forward'],['DVR','DVR / List'],['CAPTIONS','CC'],['ENTER','Enter'],['0','0'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8'],['9','9']].map(([key, label]) => ({ key, label, learned: /^(POWER|CHANNEL_|GUIDE|\d)/.test(key) })),
+        tv: { brand: 'samsung', host: '192.168.2.60', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: false, model: 'UN65TU8000 (demo)', error: null, paired: true } },
+      { id: 'den', name: 'Den (TV only)', host: '', boxType: 'none', status: 'no-box', powered: null, volume: null, volumeFrom: 'tv', app: 'com.amazon.amazonvideo.livingroom', lastChannel: null,
         tv: { brand: 'samsung', host: '192.168.1.62', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: false, model: 'QN65Q80C (demo)', error: null, paired: true } },
     ],
     apps: DEMO_APPS.map(([id, name, samsung, pkg, boxOnly]) => ({ id, name, link: boxOnly ? null : 'https://example', samsung, pkg, boxOnly: !!boxOnly })),
     channels: DEMO_CHANNELS.map(([name, number, groups, fav]) => ({ name, number, groups, fav })),
   };
 }
-function demoSave() { try { localStorage.setItem('or.demo3', JSON.stringify(state)); } catch {} }
+function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
   const m = path.match(/^\/api\/box\/([^/]+)\/(\w+)$/);
   if (path === '/api/config') {
     if (body.boxes) body.boxes = body.boxes.map((r) => { const old = state.boxes.find((x) => x.id === r.id); const id = r.id || String(r.name || r.host).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      return old ? { ...old, name: r.name, host: r.host } : { id, name: r.name, host: r.host, status: r.host ? 'ready' : 'no-box', powered: r.host ? true : null, volume: r.host ? { level: 10, max: 40, muted: false } : null, volumeFrom: 'box', app: null, lastChannel: null, tv: null }; });
+      const bt = r.boxType || (r.host ? 'androidtv' : 'none'); const label = { androidtv: 'Android TV box', directv: 'DirecTV Genie', ir: 'Cable box (infrared)', none: '' }[bt];
+      return old ? { ...old, name: r.name, host: r.host } : { id, name: r.name, host: r.host, boxType: bt, boxLabel: label, status: r.host ? 'ready' : 'no-box', powered: r.host ? true : null, volume: bt === 'androidtv' ? { level: 10, max: 40, muted: false } : null, volumeFrom: 'box', app: null, lastChannel: bt === 'directv' ? '206' : null, tv: null, focus: 'box',
+        irKeys: bt === 'ir' ? state.boxes.find((x) => x.irKeys).irKeys.map((k) => ({ ...k, learned: false })) : null, title: bt === 'directv' ? 'SportsCenter' : null, callsign: bt === 'directv' ? 'ESPNHD' : null }; });
     Object.assign(state, body); demoSave(); render(); return state;
   }
+  const irm = path.match(/^\/api\/box\/([^/]+)\/ir\/(learn|forget)$/);
+  if (irm) {
+    const b = state.boxes.find((x) => x.id === irm[1]); const k = (b.irKeys || []).find((x) => x.key === body.key); if (!k) throw new Error('unknown key');
+    if (irm[2] === 'forget') { k.learned = false; demoSave(); render(); return { ok: true }; }
+    b.irLearning = body.key; render(); await new Promise((r) => setTimeout(r, 1500)); b.irLearning = null; k.learned = true; demoSave(); render(); return { ok: true };
+  }
+  const fm = path.match(/^\/api\/box\/([^/]+)\/focus$/);
+  if (fm) { const b = state.boxes.find((x) => x.id === fm[1]); b.focus = body.focus === 'tv' ? 'tv' : 'box'; demoSave(); render(); return { ok: true }; }
   const tvm = path.match(/^\/api\/box\/([^/]+)\/tv(\/allow)?$/);
   if (tvm) {
     const b = state.boxes.find((x) => x.id === tvm[1]); if (!b) throw new Error('no such box');
     if (tvm[2]) { if (b.tv) { b.tv.paired = true; b.tv.status = 'ok'; } demoSave(); render(); return { ok: true }; }
     if (!body.brand) { b.tv = null; b.volumeFrom = 'box'; b.volume = b.host ? (b.volume || { level: 10, max: 40, muted: false }) : null; }
-    else { b.tv = { brand: body.brand, host: body.host, route: body.route || 'tv', hasPsk: !!body.psk, status: 'ok', powered: true, frame: body.brand === 'samsung' && !!body.frame, model: null, error: null, paired: body.brand === 'sony' }; b.volumeFrom = b.tv.route; if (body.brand === 'samsung' && b.volumeFrom === 'tv') b.volume = null; else b.volume = b.volume || { level: 18, max: 100, muted: false }; }
+    else { b.tv = { brand: body.brand, host: body.host, route: body.route || 'tv', hasPsk: !!body.psk, status: 'ok', powered: true, frame: body.brand === 'samsung' && !!body.frame, model: null, error: null, paired: body.brand === 'sony', linkStatus: body.brand === 'sony' && b.boxType !== 'androidtv' ? 'ready' : null }; b.volumeFrom = b.tv.route; b.tvTakesKeys = true; b.hasBothSides = b.boxType !== 'none'; if (body.brand === 'samsung' && b.volumeFrom === 'tv') b.volume = null; else b.volume = b.volume || { level: 18, max: 100, muted: false }; }
     demoSave(); render(); return state;
   }
-  if (path === '/api/discover') return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }] };
+  if (path === '/api/discover') return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }], tvs: [{ brand: 'sony', host: '192.168.1.60' }], blasters: [{ host: '192.168.2.40', model: 'RM4 mini (demo)', mac: 'aa:bb:cc:00:11:22', devType: 20992 }] };
   if (!m) return state;
   const b = state.boxes.find((x) => x.id === m[1]); if (!b) throw new Error('no such box');
   const act = m[2], v = b.volume || (b.tv && b.tv.brand === 'samsung' && b.volumeFrom === 'tv' ? { level: 0, max: 0, muted: false } : (b.volume = { level: 10, max: 40, muted: false }));
-  if (act === 'app') { const a = state.apps.find((x) => x.id === body.app); if (!a) throw new Error('unknown app'); if (!b.host && !a.samsung) throw new Error(`${a.name} is not set up for Samsung yet`); if (a.boxOnly && !b.host) throw new Error('Optimum TV needs a Stream box'); b.app = a.pkg; b.powered = true; }
+  if (act === 'app') { const a = state.apps.find((x) => x.id === body.app); if (!a) throw new Error('unknown app'); const viaTv = b.boxType !== 'androidtv'; if (viaTv && a.boxOnly) throw new Error(`${a.name} needs an Android TV box in the room`); if (viaTv && b.tv && b.tv.brand === 'samsung' && !a.samsung) throw new Error(`${a.name} is not set up for Samsung yet`); if (viaTv && !b.tv) throw new Error('nothing here can open apps'); b.app = a.pkg; b.powered = true; if (viaTv && b.hasBothSides) b.focus = 'tv'; }
   else if (act === 'key') {
     const k = body.key;
     if (k === 'ART_MODE') { if (!b.tv || !b.tv.frame) throw new Error('Art mode needs a Samsung Frame set up under ⚙'); b.tv.art = !b.tv.art; }
+    else if (b.boxType === 'ir' && b.focus !== 'tv' && !/VOLUME|MUTE|POWER/.test(k)) { const kk = (b.irKeys || []).find((x) => x.key === k); if (kk && !kk.learned) throw new Error(`${kk.label} is not learned yet (⚙ → Learn keys)`); }
     else if (k === 'VOLUME_UP') v.level = Math.min(v.max, v.level + 1);
     else if (k === 'VOLUME_DOWN') v.level = Math.max(0, v.level - 1);
     else if (k === 'MUTE') v.muted = !v.muted;
@@ -367,7 +390,7 @@ async function demoApi(path, body) {
       const i = nums.indexOf(Number(b.lastChannel));
       b.lastChannel = String(nums[(i + (k === 'CHANNEL_UP' ? 1 : nums.length - 1)) % nums.length] || nums[0] || '');
     }
-  } else if (act === 'channel') { b.lastChannel = String(body.number); b.app = 'com.altice.optimum.tv'; }
+  } else if (act === 'channel') { if (b.boxType === 'ir' && (b.irKeys || []).some((k) => /^\d$/.test(k.key) && !k.learned && String(body.number).includes(k.key))) throw new Error('digit not learned yet (⚙ → Learn keys)'); b.lastChannel = String(body.number); if (b.boxType === 'androidtv') b.app = 'com.altice.optimum.tv'; if (b.hasBothSides) b.focus = 'box'; }
   else if (act === 'volume') { v.level = Math.max(0, Math.min(v.max, Math.round(body.level))); }
   else if (act === 'pair') { b.status = 'pairing'; b.needsCode = true; }
   else if (act === 'code') { b.status = 'ready'; b.needsCode = false; }
@@ -422,7 +445,7 @@ function render() {
   $('#now').innerHTML = b ? `
     <span class="lbl">Now on ${esc(b.name)}</span>
     <span class="big">${esc(nowText(b))}</span>
-    <span class="sub">${b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || ''))}</span>
+    <span class="sub">${(b.boxType === 'directv' || b.boxType === 'ir') && b.focus !== 'tv' ? esc(b.callsign ? `${b.callsign}${b.lastChannel ? ' · CH ' + b.lastChannel : ''}` : (b.boxLabel || '')) : b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || ''))}</span>
     ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
   // tabs
   $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
@@ -431,13 +454,13 @@ function render() {
   const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? c.fav : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
   if (tab === 'apps') {
-    const tvOnly = b && !b.host, samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
+    const tvOnly = b && b.boxType !== 'androidtv', samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
     $('#grid').innerHTML = (state.apps || []).map((a) => {
       const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
       const on = b && b.app && a.pkg && b.app === a.pkg;
       return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''}" data-app="${esc(a.id)}" type="button">
         <span class="name">${esc(a.name)}</span>
-        <span class="meta"><span class="num">${na ? (a.boxOnly ? 'Needs a Stream box' : 'Not on this TV') : (on ? '' : 'Open')}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
+        <span class="meta"><span class="num">${na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (on ? '' : (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
       </button>`;
     }).join('') || '<p class="empty">No apps set up.</p>';
   } else
@@ -465,6 +488,8 @@ function render() {
   note.hidden = !(tv && b.volumeFrom === 'tv' && (tv.status !== 'ok' || (tv.brand === 'samsung' && !v)));
   note.textContent = tv && tv.status !== 'ok' ? tvStatusWord(tv) : (tv && tv.brand === 'samsung' ? 'Samsung TVs do not report the level; the TV shows it.' : '');
   $('#artBtn').hidden = !(tv && tv.frame);
+  const fx = $('#focus'); fx.hidden = !(b && b.hasBothSides);
+  if (b) fx.querySelectorAll('[data-focus]').forEach((k) => k.classList.toggle('on', k.dataset.focus === (b.focus || 'box')));
   $('#volLvl').textContent = v ? (v.muted ? 'Muted' : `${v.level} / ${v.max}`) : (tv && tv.brand === 'samsung' && tv.status === 'ok' ? 'TV' : '–');
   const bar = $('#volBar'); bar.classList.toggle('muted', !!(v && v.muted));
   $('i', bar).style.width = v ? `${Math.round(100 * v.level / (v.max || 1))}%` : '0%';
@@ -475,6 +500,8 @@ function render() {
 }
 function statusWord(x) {
   if (x.status === 'no-box') return x.tv ? tvStatusWord(x.tv) : 'Nothing set up yet';
+  if (x.boxType === 'ir') return { ready: 'Blaster connected', offline: 'Blaster not reachable', unknown: 'Checking…' }[x.status] || x.status;
+  if (x.boxType === 'directv') return { ready: x.powered === false ? 'Genie in standby' : 'Genie connected', offline: 'Genie not reachable', unknown: 'Checking…' }[x.status] || x.status;
   return { ready: x.powered === false ? 'Standby' : 'Connected', pairing: x.needsCode ? 'Enter the TV code' : 'Pairing…', connecting: 'Connecting…',
     offline: 'Not reachable', 'needs-pairing': 'Not paired yet' }[x.status] || x.status;
 }
@@ -483,6 +510,12 @@ function tvStatusWord(tv) {
     denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…' }[tv.status] || tv.status;
 }
 function nowText(b) {
+  if (b.boxType === 'directv' || b.boxType === 'ir') {
+    if (b.focus === 'tv' && b.tv) return appName(b.app) || 'TV';
+    if (b.title) return b.title;
+    const ch = b.lastChannel && state.channels.find((c) => String(c.number) === String(b.lastChannel));
+    return ch ? ch.name : (b.lastChannel ? `Channel ${b.lastChannel}` : (b.status === 'ready' ? 'Cable box' : statusWord(b)));
+  }
   if (b.status === 'no-box') return b.tv && b.tv.powered === false ? 'Off' : (appName(b.app) || (b.tv ? 'TV' : 'Nothing set up'));
   if (b.status !== 'ready') return statusWord(b);
   if (b.powered === false) return 'Off';
@@ -492,7 +525,8 @@ function nowText(b) {
 }
 
 // ---------- sheets -----------------------------------------------------------
-let tvEdit = null; // box id whose TV form is open
+let tvEdit = null; // room id whose TV form is open
+let discoverCache = {};
 function tvForm(x) {
   const tv = x.tv || { brand: '', host: '', route: 'tv' };
   return `<div class="tvform" style="grid-column:1/-1;display:grid;gap:8px;padding:6px 0 2px">
@@ -510,14 +544,32 @@ function tvForm(x) {
 function renderSheet() {
   const host = $('#sheetHost');
   const pairing = state.boxes.find((x) => x.status === 'pairing' && x.needsCode);
-  if (pairing && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup') sheet = { pair: pairing.id };
+  const pairingTv = state.boxes.find((x) => x.tv && x.tv.linkNeedsCode);
+  if (pairing && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairing.id, target: 'box' };
+  else if (pairingTv && (!sheet || sheet.pair !== pairingTv.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairingTv.id, target: 'tv' };
   if (!sheet) { host.innerHTML = ''; return; }
+  if (sheet.learn) {
+    const x = state.boxes.find((b) => b.id === sheet.learn);
+    if (!x || !x.irKeys) { sheet = null; host.innerHTML = ''; return; }
+    const cur = x.irLearning && x.irKeys.find((k) => k.key === x.irLearning);
+    host.innerHTML = `<div class="sheet"><div>
+      <h2>Learn the ${esc(x.name)} remote</h2>
+      <p>Sit the cable box's own remote a foot from the blaster. Tap Learn beside a key, then press that key on the remote. The blaster remembers it. Do the digits, channel up/down, power and guide first; the rest can wait.</p>
+      ${cur ? `<div class="learning">Now press ${esc(cur.label)} on the remote… (15 seconds)</div>` : ''}
+      ${x.irKeys.map((k) => `<div class="learnrow"><span>${esc(k.label)}</span><span class="${k.learned ? 'ok' : 'todo'}">${k.learned ? '✓ learned' : 'not yet'}</span>
+        <span>${k.learned ? `<button class="btn" data-irlearn="${esc(k.key)}" type="button">Redo</button> <button class="btn danger" data-irforget="${esc(k.key)}" type="button">Forget</button>` : `<button class="btn pri" data-irlearn="${esc(k.key)}" type="button" ${cur ? 'disabled' : ''}>Learn</button>`}</span></div>`).join('')}
+      <div class="row2"><span></span><button class="btn pri" id="closeLearn" type="button">Done</button></div>
+    </div></div>`;
+    return;
+  }
   if (sheet.pair) {
     const x = state.boxes.find((b) => b.id === sheet.pair);
-    if (!x || x.status === 'ready') { sheet = null; host.innerHTML = ''; if (x) toast(`${x.name} paired`); return; }
+    const forTv = sheet.target === 'tv';
+    const st = forTv ? (x && x.tv && x.tv.linkStatus) : (x && x.status);
+    if (!x || st === 'ready') { sheet = null; host.innerHTML = ''; if (x) toast(`${x.name} paired`); return; }
     host.innerHTML = `<div class="sheet"><div>
-      <h2>Pair with ${esc(x.name)}</h2>
-      <p>The TV on ${esc(x.host)} is showing a six-character code. Type it here.</p>
+      <h2>Pair with ${esc(x.name)}${forTv ? ' Sony TV' : ''}</h2>
+      <p>The TV on ${esc(forTv ? x.tv.host : x.host)} is showing a six-character code. Type it here.</p>
       <input class="code" id="pairCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······">
       ${x.lastError ? `<p class="err">${esc(x.lastError)}</p>` : ''}
       <div class="row2"><button class="btn" id="pairCancel" type="button">Cancel</button><button class="btn pri" id="pairSend" type="button">Pair</button></div>
@@ -530,10 +582,12 @@ function renderSheet() {
     ${standalone ? `<p>This page is running on its own, with pretend boxes. On the house Wi-Fi, open the bridge's address instead and the same page drives the real Stream boxes.</p>` : ''}
     <h3>Rooms</h3>
     ${state.boxes.map((x) => `<div class="boxrow">
-      <div><div class="nm">${esc(x.name)}</div><div class="ip">${x.host ? `Box ${esc(x.host)} · ${statusWord(x)}${x.lastError && x.status !== 'ready' ? ` · ${esc(x.lastError)}` : ''}` : 'No Stream box: the TV takes the whole remote'}</div>
-        <div class="ip">${x.tv ? `${x.tv.brand === 'sony' ? 'Sony' : 'Samsung'}${x.tv.frame ? ' Frame' : ''} TV ${esc(x.tv.host)} · ${tvStatusWord(x.tv)}${x.tv.model ? ` · ${esc(x.tv.model)}` : ''}${x.tv.error && x.tv.status !== 'ok' ? ` · ${esc(x.tv.error)}` : ''}` : 'No TV set up: volume and power go through the box (HDMI-CEC)'}</div></div>
+      <div><div class="nm">${esc(x.name)}</div><div class="ip">${x.host ? `${esc(x.boxLabel || 'Box')} ${esc(x.host)} · ${statusWord(x)}${x.lastError && x.status !== 'ready' ? ` · ${esc(x.lastError)}` : ''}${x.irKeys ? ` · ${x.irKeys.filter((k) => k.learned).length}/${x.irKeys.length} keys learned` : ''}` : 'No cable box: the TV takes the whole remote'}</div>
+        <div class="ip">${x.tv ? `${x.tv.brand === 'sony' ? 'Sony' : 'Samsung'}${x.tv.frame ? ' Frame' : ''} TV ${esc(x.tv.host)} · ${tvStatusWord(x.tv)}${x.tv.linkStatus ? ` · apps link: ${x.tv.linkStatus === 'ready' ? 'paired' : esc(x.tv.linkStatus.replace('-', ' '))}` : ''}${x.tv.model ? ` · ${esc(x.tv.model)}` : ''}${x.tv.error && x.tv.status !== 'ok' ? ` · ${esc(x.tv.error)}` : ''}` : 'No TV set up: volume and power go through the box (HDMI-CEC)'}</div></div>
       <div class="acts">
-        ${x.status === 'ready' || !x.host ? '' : `<button class="btn pri" data-pair="${esc(x.id)}" type="button">Pair box</button>`}
+        ${x.status === 'ready' || !x.host || x.boxType !== 'androidtv' ? '' : `<button class="btn pri" data-pair="${esc(x.id)}" data-target="box" type="button">Pair box</button>`}
+        ${x.tv && x.tv.brand === 'sony' && x.tv.linkStatus && x.tv.linkStatus !== 'ready' ? `<button class="btn pri" data-pair="${esc(x.id)}" data-target="tv" type="button">Pair Sony TV</button>` : ''}
+        ${x.boxType === 'ir' ? `<button class="btn pri" data-learn="${esc(x.id)}" type="button">Learn keys</button>` : ''}
         ${x.status === 'offline' ? `<button class="btn" data-reconnect="${esc(x.id)}" type="button">Retry</button>` : ''}
         ${x.tv && x.tv.brand === 'samsung' && !x.tv.paired ? `<button class="btn pri" data-allow="${esc(x.id)}" type="button">Allow on TV</button>` : ''}
         <button class="btn" data-tvedit="${esc(x.id)}" type="button">${x.tv ? 'TV…' : 'Add TV'}</button>
@@ -542,12 +596,14 @@ function renderSheet() {
       ${tvEdit === x.id ? tvForm(x) : ''}
       </div>`).join('') || '<p>No boxes yet.</p>'}
     <h3>Add a room</h3>
-    <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbName" placeholder="Room name (Living Room)"><input id="nbHost" placeholder="Stream box IP, or blank if none" inputmode="decimal"></div>
+    <input id="nbName" placeholder="Room name (Living Room)">
+    <div><span class="lbl">Cable box</span><br><div class="seg wrap" id="nbType">${[['none','None (TV only)'],['androidtv','Optimum Stream / Android TV box'],['directv','DirecTV Genie'],['ir','Other box, via infrared blaster']].map(([v,l]) => `<button type="button" data-nbtype="${v}" class="${v==='androidtv'?'on':''}">${l}</button>`).join('')}</div></div>
+    <input id="nbHost" placeholder="Box IP (192.168.1.50)" inputmode="decimal">
     <div class="seg" id="nbBrand">${[['','No TV yet'],['sony','Sony TV'],['samsung','Samsung TV']].map(([v,l]) => `<button type="button" data-nbbrand="${v}" class="${v===''?'on':''}">${l}</button>`).join('')}</div>
     <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbTvHost" placeholder="TV IP (192.168.1.60)" inputmode="decimal"><input id="nbPsk" placeholder="Sony only: Pre-Shared Key"></div>
     <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="nbFrame"> Samsung The Frame</label>
     <div class="row2"><span></span><button class="btn pri" id="nbAdd" type="button">Add room</button></div>
-    <p>A room can be a Stream box plus a TV, or a TV alone (no cable): Samsung TVs take the whole remote and open their own apps; a Sony is an Android TV and pairs like a box. Box IP: Settings → Device &amp; Remote Settings → About → Status. Or tap Find.</p>
+    <p>Any cable box works: an Android TV box (Optimum Stream and most newer boxes) pairs with a code on the screen; a DirecTV Genie talks over the network once "External Device" is allowed in its settings; anything else gets a $25 Broadlink RM4 mini infrared blaster next to it, and you teach it the box's remote under Learn keys. For an infrared box, the IP is the blaster's. A room with no box at all is fine: the TV takes the whole remote.</p>
     <div><button class="btn" id="discover" type="button">Find boxes and TVs on the Wi-Fi</button> <span id="discoverOut" class="lbl"></span></div>
     <h3>After typing a channel number</h3>
     <div class="seg" id="enterSeg">
@@ -610,18 +666,31 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-allow]'))) { toast('Look at the TV and press Allow'); return api(`/api/box/${el.dataset.allow}/tv/allow`).catch((err) => toast(err.message)); }
   if (btn('#closeSheet')) { sheet = null; return render(); }
   if (btn('#pairCancel')) { sheet = null; return render(); }
-  if (btn('#pairSend')) { const x = state.boxes.find((b) => b.id === sheet.pair); return api(`/api/box/${x.id}/code`, { code: $('#pairCode').value }).then(() => toast('Code sent, waiting for the box…')).catch((err) => toast(err.message)); }
-  if ((el = btn('[data-pair]'))) { sheet = { pair: el.dataset.pair }; return api(`/api/box/${el.dataset.pair}/pair`).then(render).catch((err) => toast(err.message)); }
+  if (btn('#pairSend')) { const x = state.boxes.find((b) => b.id === sheet.pair); return api(`/api/box/${x.id}/code`, { code: $('#pairCode').value, target: sheet.target || 'box' }).then(() => toast('Code sent, waiting…')).catch((err) => toast(err.message)); }
+  if ((el = btn('[data-pair]'))) { sheet = { pair: el.dataset.pair, target: el.dataset.target || 'box' }; return api(`/api/box/${el.dataset.pair}/pair`, { target: sheet.target }).then(render).catch((err) => toast(err.message)); }
+  if ((el = btn('[data-learn]'))) { sheet = { learn: el.dataset.learn }; return render(); }
+  if (btn('#closeLearn')) { sheet = 'setup'; return render(); }
+  if ((el = btn('[data-irlearn]'))) { return api(`/api/box/${sheet.learn}/ir/learn`, { key: el.dataset.irlearn }).then(() => toast('Learned')).catch((err) => toast(err.message, 4000)); }
+  if ((el = btn('[data-irforget]'))) { return api(`/api/box/${sheet.learn}/ir/forget`, { key: el.dataset.irforget }).catch((err) => toast(err.message)); }
+  if ((el = btn('[data-focus]'))) { const x = box(); if (!x) return; return api(`/api/box/${x.id}/focus`, { focus: el.dataset.focus }).catch((err) => toast(err.message)); }
   if ((el = btn('[data-reconnect]'))) return api(`/api/box/${el.dataset.reconnect}/reconnect`).catch((err) => toast(err.message));
   if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
   if ((el = btn('[data-nbbrand]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
+  if ((el = btn('[data-nbtype]'))) {
+    el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
+    const t = el.dataset.nbtype; const h = $('#nbHost'); h.disabled = t === 'none';
+    h.placeholder = { none: 'No box in this room', androidtv: 'Box IP (192.168.1.50)', directv: 'Genie IP (192.168.1.70)', ir: 'Blaster IP (192.168.1.80) — tap Find to list blasters' }[t]; return;
+  }
   if (btn('#nbAdd')) {
-    const name = $('#nbName').value.trim(), host = $('#nbHost').value.trim();
+    const name = $('#nbName').value.trim(); const boxType = ($('#nbType .on') || {}).dataset ? $('#nbType .on').dataset.nbtype : 'androidtv';
+    const host = boxType === 'none' ? '' : $('#nbHost').value.trim();
     const brand = ($('#nbBrand .on') || {}).dataset ? $('#nbBrand .on').dataset.nbbrand : '', tvHost = $('#nbTvHost').value.trim();
-    if (!name && !host) return toast('Give the room a name');
+    if (!name) return toast('Give the room a name');
+    if (boxType !== 'none' && !host) return toast(boxType === 'ir' ? 'Type the blaster IP address' : 'Type the box IP address');
     if (brand && !tvHost) return toast('Type the TV IP address');
-    if (!host && !brand) return toast('A room needs a Stream box IP or a TV');
-    const rooms = [...state.boxes.map(({ id, name: n, host: h }) => ({ id, name: n, host: h })), { name: name || host, host }];
+    if (!host && !brand) return toast('A room needs a cable box or a TV');
+    const found = (discoverCache.blasters || []).find((q) => q.host === host);
+    const rooms = [...state.boxes.map(({ id, name: n, host: h, boxType: bt }) => ({ id, name: n, host: h, boxType: bt })), { name, host, boxType, ...(boxType === 'ir' && found ? { ir: { mac: found.mac, devType: found.devType } } : {}) }];
     return api('/api/config', { boxes: rooms }).then((st) => {
       applyState(st);
       const room = st.boxes[st.boxes.length - 1];
@@ -633,7 +702,8 @@ document.addEventListener('click', (e) => {
   if (btn('#discover')) {
     $('#discoverOut').textContent = 'Looking…';
     return api('/api/discover').then((r) => {
-      const parts = [...r.found.map((f) => `${f.name} at ${f.host}`), ...(r.tvs || []).map((t) => `${t.brand === 'sony' ? 'Sony' : 'Samsung'} TV at ${t.host}`)];
+      discoverCache = r;
+      const parts = [...r.found.map((f) => `${f.name} at ${f.host}`), ...(r.tvs || []).map((t) => `${t.brand === 'sony' ? 'Sony' : 'Samsung'} TV at ${t.host}`), ...(r.blasters || []).map((q) => `${q.model} blaster at ${q.host}`)];
       $('#discoverOut').textContent = parts.length ? parts.join(' · ') : 'None answered. Check everything is on and on the same Wi-Fi.';
       if (r.found[0]) $('#nbHost').value = r.found[0].host;
     }).catch((err) => { $('#discoverOut').textContent = err.message; });
