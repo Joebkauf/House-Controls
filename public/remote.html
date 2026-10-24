@@ -1,0 +1,608 @@
+<title>Optimum Remote</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: a TV-guide wall. Left rail = which TV + what's on; centre = channel
+   tiles under category tabs; right pad = the few buttons a remote really needs.
+   Dark-first (it is used on a couch with the lights down); light theme for daytime. */
+:root {
+  --bg: #121820;          /* night slate */
+  --panel: #1a2230;       /* rail + pad */
+  --tile: #222c3b;        /* channel tile */
+  --tile-hi: #2b3748;     /* pressed / hover */
+  --line: #2f3b4d;
+  --fg: #f3efe7;          /* warm off-white */
+  --muted: #9aa6b8;
+  --accent: #f0b35a;      /* amber: what is on, what is live */
+  --accent-ink: #1a1408;
+  --ok: #58c28a;
+  --warn: #e8a042;
+  --bad: #e5655f;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ece9e2; --panel: #f7f5f0; --tile: #ffffff; --tile-hi: #f1ede4; --line: #d8d3c8;
+    --fg: #1c2230; --muted: #5d6676; --accent: #b8741a; --accent-ink: #fff8ec;
+    --ok: #2f9a63; --warn: #b96f12; --bad: #c4443f; --shadow: 0 8px 24px rgba(40,30,10,.12);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #ece9e2; --panel: #f7f5f0; --tile: #ffffff; --tile-hi: #f1ede4; --line: #d8d3c8;
+  --fg: #1c2230; --muted: #5d6676; --accent: #b8741a; --accent-ink: #fff8ec;
+  --ok: #2f9a63; --warn: #b96f12; --bad: #c4443f; --shadow: 0 8px 24px rgba(40,30,10,.12);
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.35 var(--body);
+  -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; box-sizing: border-box; user-select: none; -webkit-user-select: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+input { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.app { height: 100%; display: grid; gap: 14px; grid-template-columns: 180px minmax(0,1fr) 230px; grid-template-rows: minmax(0,1fr); }
+
+/* rail */
+.rail { background: var(--panel); border-radius: 18px; padding: 16px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.brand { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
+.brand small { font: 500 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.boxes { display: flex; flex-direction: column; gap: 6px; }
+.box { text-align: left; border-radius: 12px; padding: 10px 12px; border: 1px solid transparent; display: grid; gap: 3px; }
+.box.on { background: var(--tile); border-color: var(--line); }
+.box .nm { font-family: var(--display); font-size: 19px; font-weight: 600; }
+.box .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ready { background: var(--ok); } .dot.pairing, .dot.connecting { background: var(--warn); } .dot.offline, .dot.needs-pairing { background: var(--bad); }
+.now { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 4px; }
+.now .lbl, .lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.now .big { font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1.05; }
+.now .sub { color: var(--muted); font-size: 13px; }
+.rail .gear { align-self: flex-start; color: var(--muted); font-size: 13px; padding: 6px 0; display: flex; gap: 6px; align-items: center; }
+.rail .gear:hover { color: var(--fg); }
+
+/* centre */
+.main { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.tabs { display: flex; gap: 4px; align-items: center; overflow-x: auto; scrollbar-width: none; flex: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { padding: 10px 14px; border-radius: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tab.on { color: var(--fg); background: var(--panel); box-shadow: inset 0 -3px 0 var(--accent); }
+.tabs .sp { flex: 1; }
+.tab.edit { color: var(--accent); }
+.tab.edit.on { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+.grid { overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 8px; min-height: 0; }
+.tile { position: relative; background: var(--tile); border-radius: 16px; min-height: 104px; padding: 14px 14px 12px; display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: left; box-shadow: var(--shadow); border: 2px solid transparent; transition: transform .08s ease, background .08s ease; }
+.tile:active { transform: scale(.97); background: var(--tile-hi); }
+.tile.live { border-color: var(--accent); }
+.tile .name { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2.4vw, 30px); line-height: .95; letter-spacing: .01em; text-wrap: balance; align-self: start; padding-right: 26px; }
+.tile .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tile .num { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tile .num.none { color: var(--warn); font-family: var(--body); font-size: 12px; font-weight: 600; }
+.tile .onnow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.tile .fav { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; line-height: 34px; text-align: center; color: var(--muted); }
+.tile .fav.on { color: var(--accent); }
+.tile.editing { cursor: default; }
+.tile.editing input { width: 100%; box-sizing: border-box; font-size: 16px; }
+.tile.editing .row { display: grid; grid-template-columns: 1fr 72px; gap: 6px; }
+.tile.editing .del { color: var(--bad); font-size: 12px; font-weight: 600; justify-self: start; }
+.tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
+.empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
+
+/* pad */
+.pad { background: var(--panel); border-radius: 18px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; overflow-y: auto; }
+.k { background: var(--tile); border-radius: 14px; min-height: 56px; display: grid; place-items: center; font-weight: 600; font-size: 15px; letter-spacing: .04em; box-shadow: var(--shadow); transition: transform .06s ease, background .06s ease; }
+.k:active { transform: scale(.95); background: var(--tile-hi); }
+.k.big { min-height: 70px; font-size: 26px; font-family: var(--display); font-weight: 700; }
+.k.power { background: var(--accent); color: var(--accent-ink); }
+.k.mute.on { box-shadow: inset 0 0 0 2px var(--bad); }
+.k.muted-word { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.vol { display: grid; gap: 6px; }
+.vol .hdr { display: flex; justify-content: space-between; align-items: baseline; }
+.vol .lvl { font-family: var(--display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vol .bar { height: 10px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+.vol .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s ease; }
+.vol .bar.muted i { background: var(--bad); }
+.vol .note { font-size: 12px; color: var(--muted); }
+.k.art { font-size: 14px; }
+.quick { display: none; }
+.pad .closePad { display: none; }
+.stack { display: grid; gap: 6px; }
+.stack .lbl { padding-left: 2px; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.keypad .k { min-height: 52px; font-family: var(--display); font-size: 24px; font-weight: 700; }
+.keypad .k.go { background: var(--accent); color: var(--accent-ink); font-family: var(--body); font-size: 14px; }
+.dpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dpad .k { min-height: 52px; font-size: 20px; }
+.dpad .blank { visibility: hidden; }
+.entry { font-family: var(--display); font-size: 24px; font-weight: 700; min-height: 28px; text-align: center; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* sheets */
+.sheet { position: fixed; inset: 0; background: rgba(8,12,18,.6); display: grid; place-items: center; padding: 16px; z-index: 20; }
+.sheet > div { background: var(--panel); border-radius: 18px; padding: 20px; width: min(560px, 100%); max-height: 90%; overflow-y: auto; display: grid; gap: 14px; box-shadow: var(--shadow); box-sizing: border-box; }
+.sheet h2 { margin: 0; font-family: var(--display); font-size: 26px; font-weight: 700; }
+.sheet h3 { margin: 10px 0 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.sheet p { margin: 0; color: var(--muted); max-width: 60ch; }
+.sheet .boxrow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sheet .boxrow .nm { font-weight: 600; } .sheet .boxrow .ip { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.sheet .boxrow .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.btn { background: var(--tile); border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 14px; }
+.btn.pri { background: var(--accent); color: var(--accent-ink); }
+.btn.danger { color: var(--bad); }
+.formrow { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.code { font-family: var(--display); font-size: 34px; letter-spacing: .25em; text-align: center; text-transform: uppercase; }
+.err { color: var(--bad); font-size: 13px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; z-index: 30; max-width: calc(100% - 32px); box-sizing: border-box; }
+.demo-note { font-size: 12px; color: var(--warn); font-weight: 600; }
+.seg { display: inline-flex; background: var(--bg); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--tile); color: var(--fg); }
+
+@media (max-width: 1000px) {
+  .app { grid-template-columns: minmax(0,1fr) 210px; grid-template-rows: auto minmax(0,1fr); }
+  .rail { grid-column: 1 / -1; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 10px 14px; }
+  .boxes { flex-direction: row; flex-wrap: wrap; }
+  .now { margin: 0 0 0 auto; border: 0; padding: 0; text-align: right; }
+  .now .big { font-size: 20px; }
+}
+@media (max-width: 640px) {
+  .app { grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr) auto; }
+  .quick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; background: var(--panel); border-radius: 18px; padding: 10px; }
+  .quick .k { min-height: 54px; font-size: 18px; font-family: var(--display); font-weight: 700; box-shadow: none; }
+  .quick .k.power { font-size: 20px; }
+  .quick .k.more { font-family: var(--body); font-size: 13px; font-weight: 600; }
+  .pad { display: none; }
+  .pad.open { display: grid; position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; max-height: 88%; border-radius: 22px 22px 0 0;
+    grid-template-columns: 1fr 1fr; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,.45); }
+  .pad .closePad { display: grid; grid-column: 1 / -1; min-height: 44px; }
+  .pad .power, .pad .vol, .pad .row3, .pad .stack { grid-column: 1 / -1; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .tile .name { font-size: 20px; }
+  .now { width: 100%; text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <aside class="rail">
+    <div class="brand"><span>Optimum</span><small>remote</small></div>
+    <div class="boxes" id="boxes"></div>
+    <div class="now" id="now"></div>
+    <button class="gear" id="gearBtn" type="button">⚙ Boxes &amp; setup</button>
+  </aside>
+
+  <section class="main">
+    <nav class="tabs" id="tabs"></nav>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <div class="quick" id="quick">
+    <button class="k power" data-key="POWER" type="button" aria-label="Power">⏻</button>
+    <button class="k" data-key="VOLUME_DOWN" data-repeat="1" type="button" aria-label="Volume down">−</button>
+    <button class="k" data-key="VOLUME_UP" data-repeat="1" type="button" aria-label="Volume up">+</button>
+    <button class="k" data-key="MUTE" type="button" aria-label="Mute">🔇</button>
+    <button class="k" data-key="CHANNEL_DOWN" data-repeat="1" type="button" aria-label="Channel down">CH∨</button>
+    <button class="k" data-key="CHANNEL_UP" data-repeat="1" type="button" aria-label="Channel up">CH∧</button>
+    <button class="k more" id="moreBtn" type="button">More</button>
+  </div>
+
+  <aside class="pad" id="pad">
+    <button class="k closePad" id="closePad" type="button">Close ▾</button>
+    <button class="k big power" data-key="POWER" type="button">⏻ Power</button>
+    <div class="vol">
+      <div class="hdr"><span class="lbl" id="volFrom">Volume</span><span class="lvl" id="volLvl">–</span></div>
+      <div class="bar" id="volBar"><i></i></div>
+      <span class="note" id="volNote" hidden></span>
+    </div>
+    <div class="row2">
+      <button class="k big" data-key="VOLUME_DOWN" data-repeat="1" type="button">−</button>
+      <button class="k big" data-key="VOLUME_UP" data-repeat="1" type="button">+</button>
+    </div>
+    <button class="k mute" id="muteBtn" data-key="MUTE" type="button">Mute</button>
+    <button class="k art" id="artBtn" data-key="ART_MODE" type="button" hidden>🖼 Art mode ↔ TV</button>
+    <div class="row2">
+      <button class="k big" data-key="CHANNEL_DOWN" data-repeat="1" type="button">CH ∨</button>
+      <button class="k big" data-key="CHANNEL_UP" data-repeat="1" type="button">CH ∧</button>
+    </div>
+    <div class="row3">
+      <button class="k" data-key="LAST_CHANNEL" type="button">Last</button>
+      <button class="k" data-key="GUIDE" type="button">Guide</button>
+      <button class="k" data-key="CAPTIONS" type="button">CC</button>
+    </div>
+    <div class="row3">
+      <button class="k" data-key="BACK" type="button">Back</button>
+      <button class="k" data-key="HOME" type="button">Home</button>
+      <button class="k" data-key="MEDIA_PLAY_PAUSE" type="button">Play ⏯</button>
+    </div>
+    <div class="stack">
+      <span class="lbl">Type a channel</span>
+      <div class="entry" id="entry">&nbsp;</div>
+      <div class="keypad" id="keypad"></div>
+    </div>
+    <div class="stack">
+      <span class="lbl">Navigate</span>
+      <div class="dpad">
+        <span class="k blank"></span><button class="k" data-key="DPAD_UP" type="button">↑</button><span class="k blank"></span>
+        <button class="k" data-key="DPAD_LEFT" type="button">←</button><button class="k" data-key="DPAD_CENTER" type="button">OK</button><button class="k" data-key="DPAD_RIGHT" type="button">→</button>
+        <span class="k blank"></span><button class="k" data-key="DPAD_DOWN" type="button">↓</button><span class="k blank"></span>
+      </div>
+    </div>
+  </aside>
+</div>
+<div id="sheetHost"></div>
+<div id="toastHost"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const GROUPS = [['all','All'],['fav','Favorites'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
+const APP_NAMES = [
+  [/altice|optimum/i, 'Optimum TV'], [/netflix/i, 'Netflix'], [/youtube\.tv/i, 'YouTube TV'], [/youtube/i, 'YouTube'],
+  [/amazon/i, 'Prime Video'], [/hulu/i, 'Hulu'], [/disney/i, 'Disney+'], [/hbo|max/i, 'Max'], [/peacock/i, 'Peacock'],
+  [/paramount/i, 'Paramount+'], [/apple/i, 'Apple TV'], [/spotify/i, 'Spotify'], [/tvlauncher|launcher/i, 'Home screen'],
+];
+const appName = (pkg) => { if (!pkg) return ''; const m = APP_NAMES.find(([rx]) => rx.test(pkg)); return m ? m[1] : pkg.split('.').pop(); };
+
+// ---------- state + transport ---------------------------------------------
+let state = { demo: false, boxes: [], channels: [], channelEnter: 'none' };
+let standalone = false;           // no bridge reachable: run the page's own demo
+let current = null;               // selected box id
+let tab = 'all';
+let editing = false;
+let entry = '';
+let entryTimer = null;
+let sheet = null;                 // 'setup' | {pair: id} | null
+
+try { tab = localStorage.getItem('or.tab') || 'all'; current = localStorage.getItem('or.box'); } catch {}
+
+async function api(path, body) {
+  if (standalone) return demoApi(path, body);
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function applyState(s) {
+  state = s;
+  if (!state.boxes.find((b) => b.id === current)) current = state.boxes[0] ? state.boxes[0].id : null;
+  render();
+}
+async function boot() {
+  try {
+    const s = await api('/api/state');
+    if (!s || !Array.isArray(s.boxes)) throw new Error('no bridge');
+    applyState(s);
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => applyState(JSON.parse(e.data));
+    es.onerror = () => { /* the browser reconnects on its own */ };
+  } catch {
+    standalone = true;
+    applyState(demoState());
+  }
+}
+
+// ---------- page-only demo (what you see when no bridge answers) ---------
+const DEMO_CHANNELS = [
+  ['ABC', 7, ['news','entertainment'], true], ['CBS', 2, ['news','entertainment'], true], ['NBC', 4, ['news','entertainment'], true],
+  ['FOX', 5, ['news','entertainment'], false], ['News 12', 12, ['news'], true], ['CNN', 46, ['news'], false], ['Fox News', 45, ['news'], false],
+  ['MSNBC', 44, ['news'], false], ['CNBC', 43, ['news'], false], ['Bloomberg', 102, ['news'], false], ['ESPN', 28, ['sports'], true],
+  ['ESPN2', 29, ['sports'], false], ['YES', 70, ['sports'], false], ['SNY', 60, ['sports'], false], ['MSG', 26, ['sports'], false],
+  ['Golf', 82, ['sports'], false], ['A&E', 23, ['entertainment'], false], ['AMC', 27, ['entertainment','movies'], false],
+  ['HGTV', 94, ['entertainment'], false], ['Food Network', 92, ['entertainment'], false], ['Discovery', 30, ['entertainment'], false],
+  ['History', 33, ['entertainment'], false], ['TBS', 49, ['entertainment'], false], ['TNT', 36, ['entertainment','movies'], false],
+  ['Comedy Central', 48, ['entertainment'], false], ['HBO', 301, ['movies'], false], ['TCM', 110, ['movies'], false],
+  ['Cartoon Network', 51, ['kids'], false], ['Disney', 52, ['kids'], false], ['Nickelodeon', 50, ['kids'], false],
+];
+function demoState() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('or.demo2') || 'null'); } catch {}
+  return saved || {
+    demo: true, channelEnter: 'none',
+    boxes: [
+      { id: 'living', name: 'Living Room', host: '192.168.1.50', status: 'ready', powered: true, volume: { level: 18, max: 100, muted: false }, volumeFrom: 'tv', app: 'com.altice.optimum.tv', lastChannel: '7',
+        tv: { brand: 'sony', host: '192.168.1.60', route: 'tv', hasPsk: true, status: 'ok', powered: true, frame: false, model: 'XR-65A80L (demo)', error: null, paired: true } },
+      { id: 'bedroom', name: 'Bedroom', host: '192.168.1.51', status: 'ready', powered: true, volume: null, volumeFrom: 'tv', app: 'com.netflix.ninja', lastChannel: null,
+        tv: { brand: 'samsung', host: '192.168.1.61', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: true, model: 'QN55LS03B (demo)', error: null, paired: true } },
+    ],
+    channels: DEMO_CHANNELS.map(([name, number, groups, fav]) => ({ name, number, groups, fav })),
+  };
+}
+function demoSave() { try { localStorage.setItem('or.demo2', JSON.stringify(state)); } catch {} }
+async function demoApi(path, body) {
+  const m = path.match(/^\/api\/box\/([^/]+)\/(\w+)$/);
+  if (path === '/api/config') { Object.assign(state, body); demoSave(); render(); return state; }
+  const tvm = path.match(/^\/api\/box\/([^/]+)\/tv(\/allow)?$/);
+  if (tvm) {
+    const b = state.boxes.find((x) => x.id === tvm[1]); if (!b) throw new Error('no such box');
+    if (tvm[2]) { if (b.tv) { b.tv.paired = true; b.tv.status = 'ok'; } demoSave(); render(); return { ok: true }; }
+    if (!body.brand) { b.tv = null; b.volumeFrom = 'box'; b.volume = b.volume || { level: 10, max: 40, muted: false }; }
+    else { b.tv = { brand: body.brand, host: body.host, route: body.route || 'tv', hasPsk: !!body.psk, status: 'ok', powered: true, frame: body.brand === 'samsung' && !!body.frame, model: null, error: null, paired: body.brand === 'sony' }; b.volumeFrom = b.tv.route; if (body.brand === 'samsung' && b.volumeFrom === 'tv') b.volume = null; else b.volume = b.volume || { level: 18, max: 100, muted: false }; }
+    demoSave(); render(); return state;
+  }
+  if (path === '/api/discover') return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }] };
+  if (!m) return state;
+  const b = state.boxes.find((x) => x.id === m[1]); if (!b) throw new Error('no such box');
+  const act = m[2], v = b.volume || (b.tv && b.tv.brand === 'samsung' && b.volumeFrom === 'tv' ? { level: 0, max: 0, muted: false } : (b.volume = { level: 10, max: 40, muted: false }));
+  if (act === 'key') {
+    const k = body.key;
+    if (k === 'ART_MODE') { if (!b.tv || !b.tv.frame) throw new Error('Art mode needs a Samsung Frame set up under ⚙'); b.tv.art = !b.tv.art; }
+    else if (k === 'VOLUME_UP') v.level = Math.min(v.max, v.level + 1);
+    else if (k === 'VOLUME_DOWN') v.level = Math.max(0, v.level - 1);
+    else if (k === 'MUTE') v.muted = !v.muted;
+    else if (k === 'POWER') b.powered = !b.powered;
+    else if (k === 'HOME') b.app = 'com.google.android.tvlauncher';
+    else if (/^\d$/.test(k) || /CHANNEL/.test(k)) b.app = 'com.altice.optimum.tv';
+    if (k === 'CHANNEL_UP' || k === 'CHANNEL_DOWN') {
+      const nums = state.channels.map((c) => Number(c.number)).filter(Boolean).sort((a, z) => a - z);
+      const i = nums.indexOf(Number(b.lastChannel));
+      b.lastChannel = String(nums[(i + (k === 'CHANNEL_UP' ? 1 : nums.length - 1)) % nums.length] || nums[0] || '');
+    }
+  } else if (act === 'channel') { b.lastChannel = String(body.number); b.app = 'com.altice.optimum.tv'; }
+  else if (act === 'volume') { v.level = Math.max(0, Math.min(v.max, Math.round(body.level))); }
+  else if (act === 'pair') { b.status = 'pairing'; b.needsCode = true; }
+  else if (act === 'code') { b.status = 'ready'; b.needsCode = false; }
+  else if (act === 'reconnect') { b.status = 'ready'; }
+  demoSave(); render();
+  return { ok: true };
+}
+
+// ---------- actions ---------------------------------------------------------
+const box = () => state.boxes.find((b) => b.id === current) || null;
+function toast(msg, ms = 2200) {
+  const host = $('#toastHost'); host.innerHTML = `<div class="toast">${esc(msg)}</div>`;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { host.innerHTML = ''; }, ms);
+}
+async function sendKey(key) {
+  const b = box(); if (!b) return toast('Add a box first (⚙ Boxes & setup)');
+  try { await api(`/api/box/${b.id}/key`, { key }); }
+  catch (e) { toast(e.message); }
+}
+async function tune(number) {
+  const b = box(); if (!b) return toast('Add a box first');
+  if (!number) return toast('This channel has no number yet. Tap Edit to set it.');
+  try { await api(`/api/box/${b.id}/channel`, { number }); }
+  catch (e) { toast(e.message); }
+}
+function pressDigit(d) {
+  entry = (entry + d).slice(-4);
+  $('#entry').textContent = entry;
+  clearTimeout(entryTimer);
+  entryTimer = setTimeout(goEntry, 2500);
+}
+function goEntry() {
+  clearTimeout(entryTimer);
+  if (!entry) return;
+  const n = entry; entry = ''; $('#entry').innerHTML = '&nbsp;';
+  tune(n);
+}
+async function saveConfig(patch) {
+  try { applyState(await api('/api/config', patch)); } catch (e) { toast(e.message); }
+}
+
+// ---------- render ----------------------------------------------------------
+function render() {
+  const b = box();
+  // boxes
+  $('#boxes').innerHTML = state.boxes.map((x) => `
+    <button class="box ${x.id === current ? 'on' : ''}" data-box="${esc(x.id)}" type="button">
+      <span class="nm">${esc(x.name)}</span>
+      <span class="st"><i class="dot ${esc(x.status)}"></i>${statusWord(x)}</span>
+    </button>`).join('') || `<p class="lbl">No boxes yet</p>`;
+  // now playing
+  $('#now').innerHTML = b ? `
+    <span class="lbl">Now on ${esc(b.name)}</span>
+    <span class="big">${esc(nowText(b))}</span>
+    <span class="sub">${b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || '')}</span>
+    ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
+  // tabs
+  $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
+    + `<span class="sp"></span><button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`;
+  // grid
+  const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? c.fav : (c.groups || []).includes(tab)));
+  const live = b && b.lastChannel;
+  $('#grid').innerHTML = (list.map((c) => editing ? `
+    <div class="tile editing" data-i="${c.i}">
+      <div class="row">
+        <input id="nm${c.i}" value="${esc(c.name)}" placeholder="Name" aria-label="Channel name" data-field="name">
+        <input id="no${c.i}" value="${esc(c.number ?? '')}" placeholder="#" inputmode="numeric" aria-label="Channel number" data-field="number">
+      </div>
+      <div class="meta"><button class="del" data-del="${c.i}" type="button">Remove</button>
+        <button class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</button></div>
+    </div>` : `
+    <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''}" data-tune="${esc(c.number ?? '')}" type="button">
+      <span class="name">${esc(c.name)}</span>
+      <span class="meta">${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No number yet</span>'}
+        ${live && String(c.number) === String(live) ? '<span class="onnow">On now</span>' : ''}</span>
+      <span class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</span>
+    </button>`).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
+    + (editing ? `<button class="tile add" id="addCh" type="button">+ Add channel</button>` : '');
+  // volume
+  const v = b && b.volume;
+  const tv = b && b.tv;
+  $('#volFrom').textContent = tv && b.volumeFrom === 'tv' ? `Volume · ${tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV` : 'Volume · via the box';
+  const note = $('#volNote');
+  note.hidden = !(tv && b.volumeFrom === 'tv' && (tv.status !== 'ok' || (tv.brand === 'samsung' && !v)));
+  note.textContent = tv && tv.status !== 'ok' ? tvStatusWord(tv) : (tv && tv.brand === 'samsung' ? 'Samsung TVs do not report the level; the TV shows it.' : '');
+  $('#artBtn').hidden = !(tv && tv.frame);
+  $('#volLvl').textContent = v ? (v.muted ? 'Muted' : `${v.level} / ${v.max}`) : (tv && tv.brand === 'samsung' && tv.status === 'ok' ? 'TV' : '–');
+  const bar = $('#volBar'); bar.classList.toggle('muted', !!(v && v.muted));
+  $('i', bar).style.width = v ? `${Math.round(100 * v.level / (v.max || 1))}%` : '0%';
+  const mb = $('#muteBtn'); mb.classList.toggle('on', !!(v && v.muted)); mb.textContent = v && v.muted ? 'Muted · tap to unmute' : 'Mute';
+  if (!$('#keypad').children.length) $('#keypad').innerHTML = [1,2,3,4,5,6,7,8,9].map((d) => `<button class="k" data-digit="${d}" type="button">${d}</button>`).join('')
+    + `<button class="k" data-clear="1" type="button" aria-label="Clear">⌫</button><button class="k" data-digit="0" type="button">0</button><button class="k go" data-go="1" type="button">Go</button>`;
+  renderSheet();
+}
+function statusWord(x) {
+  return { ready: x.powered === false ? 'Standby' : 'Connected', pairing: x.needsCode ? 'Enter the TV code' : 'Pairing…', connecting: 'Connecting…',
+    offline: 'Not reachable', 'needs-pairing': 'Not paired yet' }[x.status] || x.status;
+}
+function tvStatusWord(tv) {
+  return { ok: tv.powered === false ? 'TV off' : 'TV connected', 'needs-allow': 'Press Allow on the TV', 'needs-psk': 'TV refused the Pre-Shared Key',
+    denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…' }[tv.status] || tv.status;
+}
+function nowText(b) {
+  if (b.status !== 'ready') return statusWord(b);
+  if (b.powered === false) return 'Off';
+  const ch = b.lastChannel && state.channels.find((c) => String(c.number) === String(b.lastChannel));
+  if (/altice|optimum/i.test(b.app || '') || (b.lastChannel && !b.app)) return ch ? ch.name : (b.lastChannel ? `Channel ${b.lastChannel}` : 'Optimum TV');
+  return appName(b.app) || 'On';
+}
+
+// ---------- sheets -----------------------------------------------------------
+let tvEdit = null; // box id whose TV form is open
+function tvForm(x) {
+  const tv = x.tv || { brand: '', host: '', route: 'tv' };
+  return `<div class="tvform" style="grid-column:1/-1;display:grid;gap:8px;padding:6px 0 2px">
+    <div class="seg" id="tvBrand">${[['','No TV'],['sony','Sony'],['samsung','Samsung']].map(([v,l]) => `<button type="button" data-brand="${v}" class="${(tv.brand||'')===v?'on':''}">${l}</button>`).join('')}</div>
+    <div class="formrow" style="grid-template-columns:1fr 1fr">
+      <input id="tvHost" value="${esc(tv.host)}" placeholder="TV IP (192.168.1.60)" inputmode="decimal">
+      <input id="tvPsk" value="" placeholder="${tv.brand==='sony' ? (tv.hasPsk ? 'Pre-Shared Key (saved; retype to change)' : 'Pre-Shared Key from the TV') : 'Sony only: Pre-Shared Key'}" ${tv.brand==='samsung'?'disabled':''}>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="tvFrame" ${tv.frame?'checked':''} ${tv.brand==='sony'?'disabled':''}> Samsung The Frame (adds the Art mode button)</label>
+    <div><span class="lbl">Volume &amp; power go to</span><br><div class="seg" id="tvRoute">${[['tv','The TV directly'],['box','The box (HDMI-CEC)']].map(([v,l]) => `<button type="button" data-route="${v}" class="${(tv.route||'tv')===v?'on':''}">${l}</button>`).join('')}</div></div>
+    <p>Sony: Settings → Network → Home Network → IP Control → Authentication = "Normal and Pre-Shared Key", set the key, turn Simple IP control on, and under Remote start choose On. Samsung: the TV pops "Allow" the first time; tick it. Keep the TVs on fixed IPs.</p>
+    <div class="row2"><button class="btn" id="tvCancel" type="button">Cancel</button><button class="btn pri" id="tvSave" type="button">Save TV</button></div>
+  </div>`;
+}
+function renderSheet() {
+  const host = $('#sheetHost');
+  const pairing = state.boxes.find((x) => x.status === 'pairing' && x.needsCode);
+  if (pairing && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup') sheet = { pair: pairing.id };
+  if (!sheet) { host.innerHTML = ''; return; }
+  if (sheet.pair) {
+    const x = state.boxes.find((b) => b.id === sheet.pair);
+    if (!x || x.status === 'ready') { sheet = null; host.innerHTML = ''; if (x) toast(`${x.name} paired`); return; }
+    host.innerHTML = `<div class="sheet"><div>
+      <h2>Pair with ${esc(x.name)}</h2>
+      <p>The TV on ${esc(x.host)} is showing a six-character code. Type it here.</p>
+      <input class="code" id="pairCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······">
+      ${x.lastError ? `<p class="err">${esc(x.lastError)}</p>` : ''}
+      <div class="row2"><button class="btn" id="pairCancel" type="button">Cancel</button><button class="btn pri" id="pairSend" type="button">Pair</button></div>
+    </div></div>`;
+    $('#pairCode').focus();
+    return;
+  }
+  host.innerHTML = `<div class="sheet"><div>
+    <h2>Boxes &amp; setup</h2>
+    ${standalone ? `<p>This page is running on its own, with pretend boxes. On the house Wi-Fi, open the bridge's address instead and the same page drives the real Stream boxes.</p>` : ''}
+    <h3>Stream boxes</h3>
+    ${state.boxes.map((x) => `<div class="boxrow">
+      <div><div class="nm">${esc(x.name)}</div><div class="ip">Box ${esc(x.host)} · ${statusWord(x)}${x.lastError && x.status !== 'ready' ? ` · ${esc(x.lastError)}` : ''}</div>
+        <div class="ip">${x.tv ? `${x.tv.brand === 'sony' ? 'Sony' : 'Samsung'}${x.tv.frame ? ' Frame' : ''} TV ${esc(x.tv.host)} · ${tvStatusWord(x.tv)}${x.tv.model ? ` · ${esc(x.tv.model)}` : ''}${x.tv.error && x.tv.status !== 'ok' ? ` · ${esc(x.tv.error)}` : ''}` : 'No TV set up: volume and power go through the box (HDMI-CEC)'}</div></div>
+      <div class="acts">
+        ${x.status === 'ready' ? '' : `<button class="btn pri" data-pair="${esc(x.id)}" type="button">Pair box</button>`}
+        ${x.status === 'offline' ? `<button class="btn" data-reconnect="${esc(x.id)}" type="button">Retry</button>` : ''}
+        ${x.tv && x.tv.brand === 'samsung' && !x.tv.paired ? `<button class="btn pri" data-allow="${esc(x.id)}" type="button">Allow on TV</button>` : ''}
+        <button class="btn" data-tvedit="${esc(x.id)}" type="button">${x.tv ? 'TV…' : 'Add TV'}</button>
+        <button class="btn danger" data-rmbox="${esc(x.id)}" type="button">Remove</button>
+      </div>
+      ${tvEdit === x.id ? tvForm(x) : ''}
+      </div>`).join('') || '<p>No boxes yet.</p>'}
+    <h3>Add a box</h3>
+    <div class="formrow"><input id="nbName" placeholder="Room (Living Room)"><input id="nbHost" placeholder="IP (192.168.1.50)" inputmode="decimal"><button class="btn pri" id="nbAdd" type="button">Add</button></div>
+    <p>Find the IP on the box: Settings → Device &amp; Remote Settings → About → Status. Or tap Find and the bridge looks for boxes on the Wi-Fi.</p>
+    <div><button class="btn" id="discover" type="button">Find boxes and TVs on the Wi-Fi</button> <span id="discoverOut" class="lbl"></span></div>
+    <h3>After typing a channel number</h3>
+    <div class="seg" id="enterSeg">
+      ${[['none','Just the digits'],['enter','Press Enter'],['center','Press OK']].map(([v, l]) => `<button type="button" data-enter="${v}" class="${state.channelEnter === v ? 'on' : ''}">${l}</button>`).join('')}
+    </div>
+    <p>Leave on "Just the digits" unless the box waits for a confirm key after the number.</p>
+    <div class="row2"><span></span><button class="btn pri" id="closeSheet" type="button">Done</button></div>
+  </div></div>`;
+}
+
+// ---------- events ------------------------------------------------------------
+let repeatTimer = null, repeatKey = null;
+function stopRepeat() { clearInterval(repeatTimer); clearTimeout(repeatTimer); repeatTimer = null; repeatKey = null; }
+document.addEventListener('pointerdown', (e) => {
+  const k = e.target.closest('[data-key][data-repeat]'); if (!k) return;
+  repeatKey = k.dataset.key;
+  repeatTimer = setTimeout(() => { repeatTimer = setInterval(() => sendKey(repeatKey), 180); }, 450);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => document.addEventListener(ev, stopRepeat));
+
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  const btn = (sel) => t.closest(sel);
+  let el;
+  if ((el = btn('[data-key]'))) return sendKey(el.dataset.key);
+  if ((el = btn('[data-digit]'))) return pressDigit(el.dataset.digit);
+  if (btn('[data-clear]')) { entry = ''; clearTimeout(entryTimer); $('#entry').innerHTML = '&nbsp;'; return; }
+  if (btn('[data-go]')) return goEntry();
+  if ((el = btn('[data-box]'))) { current = el.dataset.box; try { localStorage.setItem('or.box', current); } catch {} return render(); }
+  if ((el = btn('[data-tab]'))) { tab = el.dataset.tab; try { localStorage.setItem('or.tab', tab); } catch {} return render(); }
+  if (btn('#editBtn')) { if (editing) commitEdits(); editing = !editing; return render(); }
+  if ((el = btn('[data-fav]'))) { e.stopPropagation(); const c = state.channels[+el.dataset.fav]; c.fav = !c.fav; if (editing) return render(); return saveConfig({ channels: state.channels }); }
+  if ((el = btn('[data-del]'))) { commitEdits(); state.channels.splice(+el.dataset.del, 1); return render(); }
+  if (btn('#addCh')) { commitEdits(); state.channels.push({ name: '', number: null, groups: [tab === 'all' || tab === 'fav' ? 'entertainment' : tab], fav: tab === 'fav' }); return render(); }
+  if ((el = btn('[data-tune]'))) return tune(el.dataset.tune);
+  if (btn('#gearBtn')) { sheet = 'setup'; return render(); }
+  if (btn('#moreBtn')) { $('#pad').classList.add('open'); return; }
+  if (btn('#closePad')) { $('#pad').classList.remove('open'); return; }
+  if ((el = btn('[data-tvedit]'))) { tvEdit = tvEdit === el.dataset.tvedit ? null : el.dataset.tvedit; return renderSheet(); }
+  if (btn('#tvCancel')) { tvEdit = null; return renderSheet(); }
+  if ((el = btn('[data-brand]'))) {
+    el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
+    const brand = el.dataset.brand; $('#tvPsk').disabled = brand !== 'sony'; $('#tvFrame').disabled = brand !== 'samsung';
+    $('#tvPsk').placeholder = brand === 'sony' ? 'Pre-Shared Key from the TV' : 'Sony only: Pre-Shared Key'; return;
+  }
+  if ((el = btn('[data-route]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
+  if (btn('#tvSave')) {
+    const brandEl = $('#tvBrand .on'); const brand = brandEl ? brandEl.dataset.brand : '';
+    const body = { brand, host: $('#tvHost').value.trim(), route: ($('#tvRoute .on') || {}).dataset ? $('#tvRoute .on').dataset.route : 'tv', frame: $('#tvFrame').checked };
+    const psk = $('#tvPsk').value; if (psk) body.psk = psk;
+    const id = tvEdit;
+    return api(`/api/box/${id}/tv`, body).then((s) => { tvEdit = null; applyState(s); toast(brand ? 'TV saved' : 'TV removed'); }).catch((err) => toast(err.message));
+  }
+  if ((el = btn('[data-allow]'))) { toast('Look at the TV and press Allow'); return api(`/api/box/${el.dataset.allow}/tv/allow`).catch((err) => toast(err.message)); }
+  if (btn('#closeSheet')) { sheet = null; return render(); }
+  if (btn('#pairCancel')) { sheet = null; return render(); }
+  if (btn('#pairSend')) { const x = state.boxes.find((b) => b.id === sheet.pair); return api(`/api/box/${x.id}/code`, { code: $('#pairCode').value }).then(() => toast('Code sent, waiting for the box…')).catch((err) => toast(err.message)); }
+  if ((el = btn('[data-pair]'))) { sheet = { pair: el.dataset.pair }; return api(`/api/box/${el.dataset.pair}/pair`).then(render).catch((err) => toast(err.message)); }
+  if ((el = btn('[data-reconnect]'))) return api(`/api/box/${el.dataset.reconnect}/reconnect`).catch((err) => toast(err.message));
+  if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
+  if (btn('#nbAdd')) {
+    const name = $('#nbName').value.trim(), host = $('#nbHost').value.trim();
+    if (!host) return toast('Type the box IP address');
+    return saveConfig({ boxes: [...state.boxes.map(({ id, name: n, host: h }) => ({ id, name: n, host: h })), { name: name || host, host }] });
+  }
+  if (btn('#discover')) {
+    $('#discoverOut').textContent = 'Looking…';
+    return api('/api/discover').then((r) => {
+      const parts = [...r.found.map((f) => `${f.name} at ${f.host}`), ...(r.tvs || []).map((t) => `${t.brand === 'sony' ? 'Sony' : 'Samsung'} TV at ${t.host}`)];
+      $('#discoverOut').textContent = parts.length ? parts.join(' · ') : 'None answered. Check everything is on and on the same Wi-Fi.';
+      if (r.found[0]) $('#nbHost').value = r.found[0].host;
+    }).catch((err) => { $('#discoverOut').textContent = err.message; });
+  }
+  if ((el = btn('[data-enter]'))) return saveConfig({ channelEnter: el.dataset.enter });
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'pairCode') $('#pairSend').click(); });
+function commitEdits() {
+  document.querySelectorAll('.tile.editing').forEach((tile) => {
+    const c = state.channels[+tile.dataset.i]; if (!c) return;
+    c.name = $('[data-field=name]', tile).value.trim() || c.name;
+    const n = $('[data-field=number]', tile).value.replace(/\D/g, '');
+    c.number = n ? Number(n) : null;
+  });
+  state.channels = state.channels.filter((c) => c.name);
+  saveConfig({ channels: state.channels });
+}
+document.addEventListener('focusout', (e) => { if (editing && e.target.matches('.tile.editing input')) { /* kept until Done */ } });
+
+// keep the screen on while the remote is open (best effort)
+try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch {}
+boot();
+})();
+</script>

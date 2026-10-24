@@ -1,0 +1,18 @@
+{
+  "name": "optimum-remote",
+  "version": "0.1.0",
+  "description": "iPad remote for Optimum Stream (Android TV) boxes: a small LAN bridge plus a one-page touch UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "DEMO=1 node server.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "androidtv-remote": "^1.0.10",
+    "bonjour-service": "^1.3.0",
+    "express": "^4.22.3",
+    "ws": "^8.18.0"
+  },
+  "private": true
+}
