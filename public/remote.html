@@ -92,6 +92,10 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.editing input { width: 100%; box-sizing: border-box; font-size: 16px; }
 .tile.editing .row { display: grid; grid-template-columns: 1fr 72px; gap: 6px; }
 .tile.editing .del { color: var(--bad); font-size: 12px; font-weight: 600; justify-self: start; }
+.tile.apptile { min-height: 92px; grid-template-rows: 1fr auto; }
+.tile.apptile .name { font-size: clamp(24px, 2.6vw, 32px); padding-right: 0; }
+.tile.apptile .meta .num { font-family: var(--body); font-size: 12px; font-weight: 600; }
+.tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
 
@@ -247,7 +251,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const GROUPS = [['all','All'],['fav','Favorites'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
+const GROUPS = [['apps','Apps'],['all','All channels'],['fav','Favorites'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
 const APP_NAMES = [
   [/altice|optimum/i, 'Optimum TV'], [/netflix/i, 'Netflix'], [/youtube\.tv/i, 'YouTube TV'], [/youtube/i, 'YouTube'],
   [/amazon/i, 'Prime Video'], [/hulu/i, 'Hulu'], [/disney/i, 'Disney+'], [/hbo|max/i, 'Max'], [/peacock/i, 'Peacock'],
@@ -256,16 +260,16 @@ const APP_NAMES = [
 const appName = (pkg) => { if (!pkg) return ''; const m = APP_NAMES.find(([rx]) => rx.test(pkg)); return m ? m[1] : pkg.split('.').pop(); };
 
 // ---------- state + transport ---------------------------------------------
-let state = { demo: false, boxes: [], channels: [], channelEnter: 'none' };
+let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none' };
 let standalone = false;           // no bridge reachable: run the page's own demo
 let current = null;               // selected box id
-let tab = 'all';
+let tab = 'apps';
 let editing = false;
 let entry = '';
 let entryTimer = null;
 let sheet = null;                 // 'setup' | {pair: id} | null
 
-try { tab = localStorage.getItem('or.tab') || 'all'; current = localStorage.getItem('or.box'); } catch {}
+try { tab = localStorage.getItem('or.tab') || 'apps'; current = localStorage.getItem('or.box'); } catch {}
 
 async function api(path, body) {
   if (standalone) return demoApi(path, body);
@@ -305,9 +309,15 @@ const DEMO_CHANNELS = [
   ['Comedy Central', 48, ['entertainment'], false], ['HBO', 301, ['movies'], false], ['TCM', 110, ['movies'], false],
   ['Cartoon Network', 51, ['kids'], false], ['Disney', 52, ['kids'], false], ['Nickelodeon', 50, ['kids'], false],
 ];
+const DEMO_APPS = [
+  ['netflix','Netflix','11101200001','com.netflix.ninja'], ['prime','Prime Video','3201910019365','com.amazon.amazonvideo.livingroom'], ['youtube','YouTube','111299001912','com.google.android.youtube.tv'],
+  ['disney','Disney+','3201901017640','com.disney.disneyplus'], ['hulu','Hulu','3201601007625','com.hulu.livingroomplus'], ['max','Max','3201601007230','com.wbd.stream'],
+  ['appletv','Apple TV','3201807016597','com.apple.atve.androidtv.appletv'], ['peacock','Peacock',null,'com.peacocktv.peacockandroid'], ['paramount','Paramount+',null,'com.cbs.ott'],
+  ['spotify','Spotify','3201606009684','com.spotify.tv.android'], ['optimum','Optimum TV',null,'com.altice.optimum.tv', true],
+];
 function demoState() {
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('or.demo2') || 'null'); } catch {}
+  try { saved = JSON.parse(localStorage.getItem('or.demo3') || 'null'); } catch {}
   return saved || {
     demo: true, channelEnter: 'none',
     boxes: [
@@ -315,19 +325,26 @@ function demoState() {
         tv: { brand: 'sony', host: '192.168.1.60', route: 'tv', hasPsk: true, status: 'ok', powered: true, frame: false, model: 'XR-65A80L (demo)', error: null, paired: true } },
       { id: 'bedroom', name: 'Bedroom', host: '192.168.1.51', status: 'ready', powered: true, volume: null, volumeFrom: 'tv', app: 'com.netflix.ninja', lastChannel: null,
         tv: { brand: 'samsung', host: '192.168.1.61', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: true, model: 'QN55LS03B (demo)', error: null, paired: true } },
+      { id: 'den', name: 'Den (TV only)', host: '', status: 'no-box', powered: null, volume: null, volumeFrom: 'tv', app: 'com.amazon.amazonvideo.livingroom', lastChannel: null,
+        tv: { brand: 'samsung', host: '192.168.1.62', route: 'tv', hasPsk: false, status: 'ok', powered: true, frame: false, model: 'QN65Q80C (demo)', error: null, paired: true } },
     ],
+    apps: DEMO_APPS.map(([id, name, samsung, pkg, boxOnly]) => ({ id, name, link: boxOnly ? null : 'https://example', samsung, pkg, boxOnly: !!boxOnly })),
     channels: DEMO_CHANNELS.map(([name, number, groups, fav]) => ({ name, number, groups, fav })),
   };
 }
-function demoSave() { try { localStorage.setItem('or.demo2', JSON.stringify(state)); } catch {} }
+function demoSave() { try { localStorage.setItem('or.demo3', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
   const m = path.match(/^\/api\/box\/([^/]+)\/(\w+)$/);
-  if (path === '/api/config') { Object.assign(state, body); demoSave(); render(); return state; }
+  if (path === '/api/config') {
+    if (body.boxes) body.boxes = body.boxes.map((r) => { const old = state.boxes.find((x) => x.id === r.id); const id = r.id || String(r.name || r.host).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return old ? { ...old, name: r.name, host: r.host } : { id, name: r.name, host: r.host, status: r.host ? 'ready' : 'no-box', powered: r.host ? true : null, volume: r.host ? { level: 10, max: 40, muted: false } : null, volumeFrom: 'box', app: null, lastChannel: null, tv: null }; });
+    Object.assign(state, body); demoSave(); render(); return state;
+  }
   const tvm = path.match(/^\/api\/box\/([^/]+)\/tv(\/allow)?$/);
   if (tvm) {
     const b = state.boxes.find((x) => x.id === tvm[1]); if (!b) throw new Error('no such box');
     if (tvm[2]) { if (b.tv) { b.tv.paired = true; b.tv.status = 'ok'; } demoSave(); render(); return { ok: true }; }
-    if (!body.brand) { b.tv = null; b.volumeFrom = 'box'; b.volume = b.volume || { level: 10, max: 40, muted: false }; }
+    if (!body.brand) { b.tv = null; b.volumeFrom = 'box'; b.volume = b.host ? (b.volume || { level: 10, max: 40, muted: false }) : null; }
     else { b.tv = { brand: body.brand, host: body.host, route: body.route || 'tv', hasPsk: !!body.psk, status: 'ok', powered: true, frame: body.brand === 'samsung' && !!body.frame, model: null, error: null, paired: body.brand === 'sony' }; b.volumeFrom = b.tv.route; if (body.brand === 'samsung' && b.volumeFrom === 'tv') b.volume = null; else b.volume = b.volume || { level: 18, max: 100, muted: false }; }
     demoSave(); render(); return state;
   }
@@ -335,7 +352,8 @@ async function demoApi(path, body) {
   if (!m) return state;
   const b = state.boxes.find((x) => x.id === m[1]); if (!b) throw new Error('no such box');
   const act = m[2], v = b.volume || (b.tv && b.tv.brand === 'samsung' && b.volumeFrom === 'tv' ? { level: 0, max: 0, muted: false } : (b.volume = { level: 10, max: 40, muted: false }));
-  if (act === 'key') {
+  if (act === 'app') { const a = state.apps.find((x) => x.id === body.app); if (!a) throw new Error('unknown app'); if (!b.host && !a.samsung) throw new Error(`${a.name} is not set up for Samsung yet`); if (a.boxOnly && !b.host) throw new Error('Optimum TV needs a Stream box'); b.app = a.pkg; b.powered = true; }
+  else if (act === 'key') {
     const k = body.key;
     if (k === 'ART_MODE') { if (!b.tv || !b.tv.frame) throw new Error('Art mode needs a Samsung Frame set up under ⚙'); b.tv.art = !b.tv.art; }
     else if (k === 'VOLUME_UP') v.level = Math.min(v.max, v.level + 1);
@@ -404,14 +422,25 @@ function render() {
   $('#now').innerHTML = b ? `
     <span class="lbl">Now on ${esc(b.name)}</span>
     <span class="big">${esc(nowText(b))}</span>
-    <span class="sub">${b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || '')}</span>
+    <span class="sub">${b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || ''))}</span>
     ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
   // tabs
   $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
-    + `<span class="sp"></span><button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`;
+    + `<span class="sp"></span>${tab === 'apps' ? '' : `<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`;
   // grid
   const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? c.fav : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
+  if (tab === 'apps') {
+    const tvOnly = b && !b.host, samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
+    $('#grid').innerHTML = (state.apps || []).map((a) => {
+      const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
+      const on = b && b.app && a.pkg && b.app === a.pkg;
+      return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''}" data-app="${esc(a.id)}" type="button">
+        <span class="name">${esc(a.name)}</span>
+        <span class="meta"><span class="num">${na ? (a.boxOnly ? 'Needs a Stream box' : 'Not on this TV') : (on ? '' : 'Open')}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
+      </button>`;
+    }).join('') || '<p class="empty">No apps set up.</p>';
+  } else
   $('#grid').innerHTML = (list.map((c) => editing ? `
     <div class="tile editing" data-i="${c.i}">
       <div class="row">
@@ -445,6 +474,7 @@ function render() {
   renderSheet();
 }
 function statusWord(x) {
+  if (x.status === 'no-box') return x.tv ? tvStatusWord(x.tv) : 'Nothing set up yet';
   return { ready: x.powered === false ? 'Standby' : 'Connected', pairing: x.needsCode ? 'Enter the TV code' : 'Pairing…', connecting: 'Connecting…',
     offline: 'Not reachable', 'needs-pairing': 'Not paired yet' }[x.status] || x.status;
 }
@@ -453,6 +483,7 @@ function tvStatusWord(tv) {
     denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…' }[tv.status] || tv.status;
 }
 function nowText(b) {
+  if (b.status === 'no-box') return b.tv && b.tv.powered === false ? 'Off' : (appName(b.app) || (b.tv ? 'TV' : 'Nothing set up'));
   if (b.status !== 'ready') return statusWord(b);
   if (b.powered === false) return 'Off';
   const ch = b.lastChannel && state.channels.find((c) => String(c.number) === String(b.lastChannel));
@@ -497,12 +528,12 @@ function renderSheet() {
   host.innerHTML = `<div class="sheet"><div>
     <h2>Boxes &amp; setup</h2>
     ${standalone ? `<p>This page is running on its own, with pretend boxes. On the house Wi-Fi, open the bridge's address instead and the same page drives the real Stream boxes.</p>` : ''}
-    <h3>Stream boxes</h3>
+    <h3>Rooms</h3>
     ${state.boxes.map((x) => `<div class="boxrow">
-      <div><div class="nm">${esc(x.name)}</div><div class="ip">Box ${esc(x.host)} · ${statusWord(x)}${x.lastError && x.status !== 'ready' ? ` · ${esc(x.lastError)}` : ''}</div>
+      <div><div class="nm">${esc(x.name)}</div><div class="ip">${x.host ? `Box ${esc(x.host)} · ${statusWord(x)}${x.lastError && x.status !== 'ready' ? ` · ${esc(x.lastError)}` : ''}` : 'No Stream box: the TV takes the whole remote'}</div>
         <div class="ip">${x.tv ? `${x.tv.brand === 'sony' ? 'Sony' : 'Samsung'}${x.tv.frame ? ' Frame' : ''} TV ${esc(x.tv.host)} · ${tvStatusWord(x.tv)}${x.tv.model ? ` · ${esc(x.tv.model)}` : ''}${x.tv.error && x.tv.status !== 'ok' ? ` · ${esc(x.tv.error)}` : ''}` : 'No TV set up: volume and power go through the box (HDMI-CEC)'}</div></div>
       <div class="acts">
-        ${x.status === 'ready' ? '' : `<button class="btn pri" data-pair="${esc(x.id)}" type="button">Pair box</button>`}
+        ${x.status === 'ready' || !x.host ? '' : `<button class="btn pri" data-pair="${esc(x.id)}" type="button">Pair box</button>`}
         ${x.status === 'offline' ? `<button class="btn" data-reconnect="${esc(x.id)}" type="button">Retry</button>` : ''}
         ${x.tv && x.tv.brand === 'samsung' && !x.tv.paired ? `<button class="btn pri" data-allow="${esc(x.id)}" type="button">Allow on TV</button>` : ''}
         <button class="btn" data-tvedit="${esc(x.id)}" type="button">${x.tv ? 'TV…' : 'Add TV'}</button>
@@ -510,9 +541,13 @@ function renderSheet() {
       </div>
       ${tvEdit === x.id ? tvForm(x) : ''}
       </div>`).join('') || '<p>No boxes yet.</p>'}
-    <h3>Add a box</h3>
-    <div class="formrow"><input id="nbName" placeholder="Room (Living Room)"><input id="nbHost" placeholder="IP (192.168.1.50)" inputmode="decimal"><button class="btn pri" id="nbAdd" type="button">Add</button></div>
-    <p>Find the IP on the box: Settings → Device &amp; Remote Settings → About → Status. Or tap Find and the bridge looks for boxes on the Wi-Fi.</p>
+    <h3>Add a room</h3>
+    <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbName" placeholder="Room name (Living Room)"><input id="nbHost" placeholder="Stream box IP, or blank if none" inputmode="decimal"></div>
+    <div class="seg" id="nbBrand">${[['','No TV yet'],['sony','Sony TV'],['samsung','Samsung TV']].map(([v,l]) => `<button type="button" data-nbbrand="${v}" class="${v===''?'on':''}">${l}</button>`).join('')}</div>
+    <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbTvHost" placeholder="TV IP (192.168.1.60)" inputmode="decimal"><input id="nbPsk" placeholder="Sony only: Pre-Shared Key"></div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="nbFrame"> Samsung The Frame</label>
+    <div class="row2"><span></span><button class="btn pri" id="nbAdd" type="button">Add room</button></div>
+    <p>A room can be a Stream box plus a TV, or a TV alone (no cable): Samsung TVs take the whole remote and open their own apps; a Sony is an Android TV and pairs like a box. Box IP: Settings → Device &amp; Remote Settings → About → Status. Or tap Find.</p>
     <div><button class="btn" id="discover" type="button">Find boxes and TVs on the Wi-Fi</button> <span id="discoverOut" class="lbl"></span></div>
     <h3>After typing a channel number</h3>
     <div class="seg" id="enterSeg">
@@ -542,12 +577,18 @@ document.addEventListener('click', (e) => {
   if (btn('[data-clear]')) { entry = ''; clearTimeout(entryTimer); $('#entry').innerHTML = '&nbsp;'; return; }
   if (btn('[data-go]')) return goEntry();
   if ((el = btn('[data-box]'))) { current = el.dataset.box; try { localStorage.setItem('or.box', current); } catch {} return render(); }
-  if ((el = btn('[data-tab]'))) { tab = el.dataset.tab; try { localStorage.setItem('or.tab', tab); } catch {} return render(); }
+  if ((el = btn('[data-tab]'))) { if (editing) { commitEdits(); editing = false; } tab = el.dataset.tab; try { localStorage.setItem('or.tab', tab); } catch {} return render(); }
   if (btn('#editBtn')) { if (editing) commitEdits(); editing = !editing; return render(); }
   if ((el = btn('[data-fav]'))) { e.stopPropagation(); const c = state.channels[+el.dataset.fav]; c.fav = !c.fav; if (editing) return render(); return saveConfig({ channels: state.channels }); }
   if ((el = btn('[data-del]'))) { commitEdits(); state.channels.splice(+el.dataset.del, 1); return render(); }
   if (btn('#addCh')) { commitEdits(); state.channels.push({ name: '', number: null, groups: [tab === 'all' || tab === 'fav' ? 'entertainment' : tab], fav: tab === 'fav' }); return render(); }
   if ((el = btn('[data-tune]'))) return tune(el.dataset.tune);
+  if ((el = btn('[data-app]'))) {
+    const x = box(); if (!x) return toast('Add a room first');
+    const a = state.apps.find((q) => q.id === el.dataset.app);
+    toast(`Opening ${a ? a.name : 'app'} on ${x.name}…`, 1500);
+    return api(`/api/box/${x.id}/app`, { app: el.dataset.app }).catch((err) => toast(err.message));
+  }
   if (btn('#gearBtn')) { sheet = 'setup'; return render(); }
   if (btn('#moreBtn')) { $('#pad').classList.add('open'); return; }
   if (btn('#closePad')) { $('#pad').classList.remove('open'); return; }
@@ -573,10 +614,21 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-pair]'))) { sheet = { pair: el.dataset.pair }; return api(`/api/box/${el.dataset.pair}/pair`).then(render).catch((err) => toast(err.message)); }
   if ((el = btn('[data-reconnect]'))) return api(`/api/box/${el.dataset.reconnect}/reconnect`).catch((err) => toast(err.message));
   if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
+  if ((el = btn('[data-nbbrand]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
   if (btn('#nbAdd')) {
     const name = $('#nbName').value.trim(), host = $('#nbHost').value.trim();
-    if (!host) return toast('Type the box IP address');
-    return saveConfig({ boxes: [...state.boxes.map(({ id, name: n, host: h }) => ({ id, name: n, host: h })), { name: name || host, host }] });
+    const brand = ($('#nbBrand .on') || {}).dataset ? $('#nbBrand .on').dataset.nbbrand : '', tvHost = $('#nbTvHost').value.trim();
+    if (!name && !host) return toast('Give the room a name');
+    if (brand && !tvHost) return toast('Type the TV IP address');
+    if (!host && !brand) return toast('A room needs a Stream box IP or a TV');
+    const rooms = [...state.boxes.map(({ id, name: n, host: h }) => ({ id, name: n, host: h })), { name: name || host, host }];
+    return api('/api/config', { boxes: rooms }).then((st) => {
+      applyState(st);
+      const room = st.boxes[st.boxes.length - 1];
+      if (!brand) return toast('Room added');
+      return api(`/api/box/${room.id}/tv`, { brand, host: tvHost, route: 'tv', frame: $('#nbFrame').checked, ...($('#nbPsk').value ? { psk: $('#nbPsk').value } : {}) })
+        .then((st2) => { applyState(st2); toast(brand === 'samsung' ? 'Room added. Tap Allow on TV, then Allow on the set.' : 'Room added'); });
+    }).catch((err) => toast(err.message));
   }
   if (btn('#discover')) {
     $('#discoverOut').textContent = 'Looking…';

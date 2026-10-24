@@ -30,12 +30,14 @@ function loadConfig() {
     if (DEMO) cfg.boxes = [
       { id: 'living', name: 'Living Room', host: '192.168.1.50', tv: { brand: 'sony', host: '192.168.1.60', psk: 'demo', route: 'tv' } },
       { id: 'bedroom', name: 'Bedroom', host: '192.168.1.51', tv: { brand: 'samsung', host: '192.168.1.61', frame: true, route: 'tv' } },
+      { id: 'den', name: 'Den (TV only)', host: '', tv: { brand: 'samsung', host: '192.168.1.62', frame: false, route: 'tv' } },
     ];
     saveConfig(cfg);
   }
   cfg.boxes = cfg.boxes || [];
   cfg.channels = cfg.channels || [];
   cfg.channelEnter = cfg.channelEnter || 'none'; // 'none' | 'enter' | 'center'
+  if (!cfg.apps) { cfg.apps = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.example.json'), 'utf8')).apps; saveConfig(cfg); }
   return cfg;
 }
 function saveConfig(cfg) {
@@ -72,6 +74,7 @@ function publicState() {
     demo: DEMO,
     boxes: [...boxes.values()].map(publicBox),
     channels: config.channels,
+    apps: config.apps,
     channelEnter: config.channelEnter,
   };
 }
@@ -93,6 +96,7 @@ function keyCode(name) {
 }
 
 async function connectBox(b, { pair = false } = {}) {
+  if (!b.cfg.host) { b.status = 'no-box'; broadcast(); return; }
   if (DEMO) return demoConnect(b);
   if (b.remote) { try { b.remote.stop(); } catch { /* ignore */ } b.remote = null; }
   const cert = pair ? null : readCert(b.cfg.id);
@@ -135,6 +139,8 @@ async function connectBox(b, { pair = false } = {}) {
   }
 }
 
+const STATUS_WORDS = { 'needs-pairing': 'box is not paired yet (⚙ → Pair box)', pairing: 'box is still pairing', connecting: 'box is connecting', offline: 'box is not reachable', 'no-box': 'room has no box' };
+const notReady = (b) => Object.assign(new Error(`${b.cfg.name}: ${STATUS_WORDS[b.status] || b.status}`), { status: 409 });
 const TV_KEYS = { VOLUME_UP: 'volumeUp', VOLUME_DOWN: 'volumeDown', MUTE: 'mute', VOLUME_MUTE: 'mute', POWER: 'powerToggle', TV_POWER: 'powerToggle', ART_MODE: 'artMode' };
 function sendKey(b, name) {
   const tvAct = TV_KEYS[name];
@@ -143,7 +149,15 @@ function sendKey(b, name) {
     return b.tv[tvAct]().then(broadcast).catch((e) => { b.tv.error = e.message; broadcast(); throw Object.assign(e, { status: 502 }); });
   }
   if (name === 'ART_MODE') throw Object.assign(new Error('Art mode needs a Samsung Frame set up under ⚙'), { status: 400 });
-  if (b.status !== 'ready') throw Object.assign(new Error(`${b.cfg.name} is ${b.status}`), { status: 409 });
+  if (!b.cfg.host) { // TV-only room: the TV takes the whole remote
+    if (b.tv && b.tv.sendKey) {
+      const code = TV.SAMSUNG_KEYS[name];
+      if (!code) throw Object.assign(new Error(`a Samsung TV has no ${name} key`), { status: 400 });
+      return b.tv.sendKey(code).catch((e) => { throw Object.assign(e, { status: 502 }); });
+    }
+    throw Object.assign(new Error(b.tv ? 'A Sony is an Android TV: put its IP in the room\'s box field and pair it' : `${b.cfg.name} has no box or TV set up`), { status: 409 });
+  }
+  if (b.status !== 'ready') throw notReady(b);
   if (DEMO) return demoKey(b, name);
   b.remote.sendKey(keyCode(name), RemoteDirection.SHORT);
 }
@@ -185,7 +199,7 @@ function attachTv(b) {
   b.tvPoll = setInterval(() => b.tv && b.tv.poll().catch(() => {}), 15000);
 }
 function demoTv(cfg) {
-  const t = { brand: cfg.brand, frame: cfg.brand === 'samsung' && cfg.frame !== false, status: 'ok', powered: true, model: cfg.brand === 'sony' ? 'XR-65A80L (demo)' : 'QN55LS03B (demo)',
+  const t = { brand: cfg.brand, frame: cfg.brand === 'samsung' && !!cfg.frame, status: 'ok', powered: true, model: cfg.brand === 'sony' ? 'XR-65A80L (demo)' : 'QN55LS03B (demo)',
     volume: cfg.brand === 'sony' ? { level: 18, max: 100, muted: false } : null };
   const step = (d) => async () => { if (t.volume) t.volume.level = Math.max(0, Math.min(t.volume.max, t.volume.level + d)); };
   Object.assign(t, {
@@ -194,7 +208,8 @@ function demoTv(cfg) {
     mute: async () => { if (t.volume) t.volume.muted = !t.volume.muted; },
     powerToggle: async () => { t.powered = !t.powered; }, powerOn: async () => { t.powered = true; }, powerOff: async () => { t.powered = false; },
     artMode: cfg.brand === 'samsung' ? async () => { t.art = !t.art; } : null,
-    allow: async () => { t.token = 'demo'; }, poll: async () => t, close: () => {},
+    allow: async () => { t.token = 'demo'; }, poll: async () => t, close: () => {}, token: cfg.brand === 'samsung' ? 'demo' : undefined,
+    sendKey: cfg.brand === 'samsung' ? async () => {} : undefined, launchApp: cfg.brand === 'samsung' ? async () => {} : undefined,
   });
   return t;
 }
@@ -287,7 +302,7 @@ app.post('/api/box/:id/volume', wrap(async (req, res) => {
 }));
 app.post('/api/box/:id/applink', wrap(async (req, res) => {
   const b = getBox(req, res); if (!b) return;
-  if (b.status !== 'ready') throw Object.assign(new Error(`${b.cfg.name} is ${b.status}`), { status: 409 });
+  if (b.status !== 'ready') throw notReady(b);
   if (!DEMO) b.remote.sendAppLink(String(req.body.url));
   return { ok: true };
 }));
@@ -312,6 +327,28 @@ app.post('/api/box/:id/reconnect', wrap(async (req, res) => {
   return { ok: true };
 }));
 
+// Open an app (Netflix, Prime…) on whatever is in the room.
+async function openApp(b, appId) {
+  const app = (config.apps || []).find((a) => a.id === appId);
+  if (!app) throw Object.assign(new Error('unknown app'), { status: 404 });
+  if (b.cfg.host) { // a Stream box (or a Sony, which is an Android TV) takes a link
+    if (b.status !== 'ready') throw notReady(b);
+    if (app.boxOnly && !app.link) { sendKey(b, 'HOME'); b.app = app.pkg; broadcast(); return; }
+    if (DEMO) { b.app = app.pkg; broadcast(); return; }
+    b.remote.sendAppLink(app.link); return;
+  }
+  if (b.tv && b.tv.launchApp) {
+    if (!app.samsung) throw Object.assign(new Error(`${app.name} is not set up for Samsung yet`), { status: 400 });
+    await b.tv.launchApp(app.samsung); b.app = app.pkg; broadcast(); return;
+  }
+  throw Object.assign(new Error(`${b.cfg.name} has nothing that can open apps`), { status: 409 });
+}
+app.post('/api/box/:id/app', wrap(async (req, res) => {
+  const b = getBox(req, res); if (!b) return;
+  await openApp(b, String(req.body.app || ''));
+  return { ok: true };
+}));
+
 // TV behind a box: save its settings, or (Samsung) ask the TV to Allow us.
 app.post('/api/box/:id/tv', wrap(async (req, res) => {
   const b = getBox(req, res); if (!b) return;
@@ -325,6 +362,7 @@ app.post('/api/box/:id/tv', wrap(async (req, res) => {
       token: t.brand === 'samsung' && t.host === prev.host ? prev.token : undefined,
       mac: t.mac || prev.mac, frame: t.frame !== undefined ? !!t.frame : prev.frame };
     if (!cfg.tv.host) throw Object.assign(new Error('type the TV IP address'), { status: 400 });
+    if (t.brand === 'sony' && !cfg.host) { cfg.host = cfg.tv.host; b.cfg = cfg; connectBox(b); }
   }
   saveConfig(config); b.cfg = cfg; attachTv(b); broadcast();
   return publicState();
@@ -357,12 +395,14 @@ app.post('/api/config', wrap(async (req) => {
   if (Array.isArray(body.channels)) config.channels = body.channels;
   if (Array.isArray(body.boxes)) {
     config.boxes = body.boxes
-      .filter((b) => b && b.host)
+      .filter((b) => b && (b.host || b.name))
       .map((b) => {
         const id = b.id || slug(b.name || b.host);
         const prev = config.boxes.find((c) => c.id === id);
-        return { id, name: b.name || b.host, host: String(b.host).trim(), ...(prev && prev.tv ? { tv: prev.tv } : {}) };
+        const changed = prev && prev.host !== String(b.host || '').trim();
+        return { id, name: b.name || b.host, host: String(b.host || '').trim(), ...(prev && prev.tv ? { tv: prev.tv } : {}), _rehost: changed };
       });
+    for (const c of config.boxes) { if (c._rehost && boxes.has(c.id)) { const bx = boxes.get(c.id); bx.cfg = c; try { bx.remote && bx.remote.stop(); } catch {} bx.remote = null; connectBox(bx); } delete c._rehost; }
   }
   if (body.channelEnter) config.channelEnter = body.channelEnter;
   saveConfig(config);

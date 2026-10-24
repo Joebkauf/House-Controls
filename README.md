@@ -1,8 +1,11 @@
 # Optimum Remote
 
-An iPad and iPhone remote for the Optimum Stream boxes (Altice DV8555, an
-Android TV box) and the Sony and Samsung TVs behind them. Big channel tiles,
-volume, mute, channel up/down, a keypad, pairing, several rooms. One small
+An iPad and iPhone remote for the house's TVs: pick a room, tap Netflix or
+Prime or a channel, and go. It drives Optimum Stream boxes (Altice DV8555,
+an Android TV box) and Sony and Samsung TVs, together or on their own. A
+room can be a Stream box plus a TV (the New York house) or a TV alone with
+no cable (Florida). Big app and channel tiles, volume, mute, a keypad,
+pairing, as many rooms as you have. One small
 Node "bridge" runs on the house network and talks to each box the same way
 the Google TV phone app does (Android TV Remote protocol v2). No developer
 mode, no ADB, no Optimum account. Volume and power go straight to the TV
@@ -20,13 +23,29 @@ iPad / iPhone (Safari, saved to the home screen)
    ▼
 bridge  (node server.js on a PC / Mac mini / Raspberry Pi that stays on)
    ├── Android TV Remote v2 ──▶ Optimum Stream box   (channels, guide, apps)
-   ├── Sony REST + PSK ───────▶ Sony Bravia          (volume, mute, power)
-   └── Samsung WebSocket ─────▶ Samsung / The Frame  (volume, mute, power, Art mode)
+   │                        └▶ Sony Bravia (it IS an Android TV: apps, arrows, back, home)
+   ├── Sony REST + PSK ───────▶ Sony Bravia          (volume level, mute, power)
+   └── Samsung WebSocket+REST ▶ Samsung / The Frame  (whole remote, apps, volume, power, Art mode)
 ```
 
 The bridge must be on the same Wi-Fi/LAN as the boxes. The box's remote
 protocol is a raw TLS socket, which a browser cannot open, so the page cannot
 talk to the box directly; the bridge is the translator.
+
+## Rooms: with a box, or TV only
+
+- **Stream box + TV** (New York): the box gets channels, guide and apps; the
+  TV gets volume and power. Pair the box, add the TV.
+- **Samsung TV alone** (Florida, no cable): leave the box field blank. The TV
+  takes the whole remote: apps open through the TV, arrows/back/home drive
+  its menus, volume and power are the TV's.
+- **Sony TV alone**: a Sony is itself an Android TV, so it pairs exactly like
+  a Stream box (a code on the screen). Adding a Sony TV to a room with no
+  box fills the box field with the TV's IP for you; then Pair box.
+
+The **Apps** tab is the first tab: Netflix, Prime Video, YouTube, Disney+,
+Hulu, Max, Apple TV, Peacock, Paramount+, Spotify, and Optimum TV where
+there is a box. A greyed tile says why it is not available in that room.
 
 ## First night at home (15 minutes)
 
@@ -53,8 +72,9 @@ talk to the box directly; the bridge is the translator.
 6. **Fill in channel numbers:** tap Edit, type each channel's number, Done.
    Star the ones you watch. Tiles with no number say so until you set one.
 
-7. **Add the TV behind the box:** ⚙ → Add TV next to the room → Sony or
-   Samsung → the TV's IP → Save TV.
+7. **Add the TV behind the box** (or make a TV-only room): ⚙ → Add a room:
+   name, Stream box IP (or blank), Sony or Samsung, the TV's IP → Add room.
+   For a room that already exists, TV… next to it opens the same form.
    - **Sony:** on the TV, Settings → Network → Home Network → IP Control →
      Authentication = "Normal and Pre-Shared Key", type a key, Simple IP
      control On, Remote start On. Type the same key in the form.
@@ -75,6 +95,8 @@ phone) switches rooms.
 | − / + (hold to repeat) | TV set up: the TV's volume. Otherwise `VOLUME_DOWN` / `VOLUME_UP` to the box |
 | Mute | TV set up: the TV's mute. Otherwise `MUTE` to the box |
 | Art mode ↔ TV (Frames) | a short power press on the Frame, which swaps picture and art |
+| App tile | box or Sony: an app link over the Android TV protocol. Samsung alone: the TV's own app launcher |
+| Arrows, OK, Back, Home | the box; or the Samsung TV's own keys in a TV-only room |
 | CH ∨ / CH ∧ | `CHANNEL_DOWN` / `CHANNEL_UP` |
 | Last, Guide, CC | `LAST_CHANNEL`, `GUIDE`, `CAPTIONS` |
 | Back, Home, Play | `BACK`, `HOME`, `MEDIA_PLAY_PAUSE` |
@@ -89,6 +111,12 @@ shows the number. "Volume & power go to" in the TV form can send them
 through the box over HDMI-CEC instead, per room.
 
 ## Things to confirm on the real sets
+
+- **App links.** The Android TV protocol opens an app by handing it a web
+  link (netflix.com, primevideo.com…). Any app that ignores its link falls
+  back to the TV's home screen; tell me which and I'll switch that tile to
+  the app's own scheme. Samsung app IDs are the standard Tizen ones;
+  Peacock and Paramount+ are not filled in for Samsung yet.
 
 - **Frame power off.** Over the network a Frame treats a short power press
   as "swap to Art mode" and a held press as "off". The bridge holds the key

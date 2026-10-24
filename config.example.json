@@ -2,35 +2,331 @@
   "boxes": [],
   "channelEnter": "none",
   "channels": [
-    { "name": "ABC", "number": null, "groups": ["news", "entertainment"], "fav": true },
-    { "name": "CBS", "number": null, "groups": ["news", "entertainment"], "fav": true },
-    { "name": "NBC", "number": null, "groups": ["news", "entertainment"], "fav": true },
-    { "name": "FOX", "number": null, "groups": ["news", "entertainment"], "fav": false },
-    { "name": "News 12", "number": null, "groups": ["news"], "fav": true },
-    { "name": "CNN", "number": null, "groups": ["news"], "fav": false },
-    { "name": "Fox News", "number": null, "groups": ["news"], "fav": false },
-    { "name": "MSNBC", "number": null, "groups": ["news"], "fav": false },
-    { "name": "CNBC", "number": null, "groups": ["news"], "fav": false },
-    { "name": "Bloomberg", "number": null, "groups": ["news"], "fav": false },
-    { "name": "ESPN", "number": null, "groups": ["sports"], "fav": true },
-    { "name": "ESPN2", "number": null, "groups": ["sports"], "fav": false },
-    { "name": "YES", "number": null, "groups": ["sports"], "fav": false },
-    { "name": "SNY", "number": null, "groups": ["sports"], "fav": false },
-    { "name": "MSG", "number": null, "groups": ["sports"], "fav": false },
-    { "name": "Golf", "number": null, "groups": ["sports"], "fav": false },
-    { "name": "A&E", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "AMC", "number": null, "groups": ["entertainment", "movies"], "fav": false },
-    { "name": "HGTV", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "Food Network", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "Discovery", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "History", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "TBS", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "TNT", "number": null, "groups": ["entertainment", "movies"], "fav": false },
-    { "name": "Comedy Central", "number": null, "groups": ["entertainment"], "fav": false },
-    { "name": "HBO", "number": null, "groups": ["movies"], "fav": false },
-    { "name": "TCM", "number": null, "groups": ["movies"], "fav": false },
-    { "name": "Cartoon Network", "number": null, "groups": ["kids"], "fav": false },
-    { "name": "Disney", "number": null, "groups": ["kids"], "fav": false },
-    { "name": "Nickelodeon", "number": null, "groups": ["kids"], "fav": false }
+    {
+      "name": "ABC",
+      "number": null,
+      "groups": [
+        "news",
+        "entertainment"
+      ],
+      "fav": true
+    },
+    {
+      "name": "CBS",
+      "number": null,
+      "groups": [
+        "news",
+        "entertainment"
+      ],
+      "fav": true
+    },
+    {
+      "name": "NBC",
+      "number": null,
+      "groups": [
+        "news",
+        "entertainment"
+      ],
+      "fav": true
+    },
+    {
+      "name": "FOX",
+      "number": null,
+      "groups": [
+        "news",
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "News 12",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": true
+    },
+    {
+      "name": "CNN",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Fox News",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": false
+    },
+    {
+      "name": "MSNBC",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": false
+    },
+    {
+      "name": "CNBC",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Bloomberg",
+      "number": null,
+      "groups": [
+        "news"
+      ],
+      "fav": false
+    },
+    {
+      "name": "ESPN",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": true
+    },
+    {
+      "name": "ESPN2",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": false
+    },
+    {
+      "name": "YES",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": false
+    },
+    {
+      "name": "SNY",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": false
+    },
+    {
+      "name": "MSG",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Golf",
+      "number": null,
+      "groups": [
+        "sports"
+      ],
+      "fav": false
+    },
+    {
+      "name": "A&E",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "AMC",
+      "number": null,
+      "groups": [
+        "entertainment",
+        "movies"
+      ],
+      "fav": false
+    },
+    {
+      "name": "HGTV",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Food Network",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Discovery",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "History",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "TBS",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "TNT",
+      "number": null,
+      "groups": [
+        "entertainment",
+        "movies"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Comedy Central",
+      "number": null,
+      "groups": [
+        "entertainment"
+      ],
+      "fav": false
+    },
+    {
+      "name": "HBO",
+      "number": null,
+      "groups": [
+        "movies"
+      ],
+      "fav": false
+    },
+    {
+      "name": "TCM",
+      "number": null,
+      "groups": [
+        "movies"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Cartoon Network",
+      "number": null,
+      "groups": [
+        "kids"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Disney",
+      "number": null,
+      "groups": [
+        "kids"
+      ],
+      "fav": false
+    },
+    {
+      "name": "Nickelodeon",
+      "number": null,
+      "groups": [
+        "kids"
+      ],
+      "fav": false
+    }
+  ],
+  "apps": [
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "link": "https://www.netflix.com/title",
+      "samsung": "11101200001",
+      "pkg": "com.netflix.ninja"
+    },
+    {
+      "id": "prime",
+      "name": "Prime Video",
+      "link": "https://app.primevideo.com",
+      "samsung": "3201910019365",
+      "pkg": "com.amazon.amazonvideo.livingroom"
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "link": "https://www.youtube.com",
+      "samsung": "111299001912",
+      "pkg": "com.google.android.youtube.tv"
+    },
+    {
+      "id": "disney",
+      "name": "Disney+",
+      "link": "https://www.disneyplus.com",
+      "samsung": "3201901017640",
+      "pkg": "com.disney.disneyplus"
+    },
+    {
+      "id": "hulu",
+      "name": "Hulu",
+      "link": "https://www.hulu.com",
+      "samsung": "3201601007625",
+      "pkg": "com.hulu.livingroomplus"
+    },
+    {
+      "id": "max",
+      "name": "Max",
+      "link": "https://play.max.com",
+      "samsung": "3201601007230",
+      "pkg": "com.wbd.stream"
+    },
+    {
+      "id": "appletv",
+      "name": "Apple TV",
+      "link": "https://tv.apple.com",
+      "samsung": "3201807016597",
+      "pkg": "com.apple.atve.androidtv.appletv"
+    },
+    {
+      "id": "peacock",
+      "name": "Peacock",
+      "link": "https://www.peacocktv.com",
+      "samsung": null,
+      "pkg": "com.peacocktv.peacockandroid"
+    },
+    {
+      "id": "paramount",
+      "name": "Paramount+",
+      "link": "https://www.paramountplus.com",
+      "samsung": null,
+      "pkg": "com.cbs.ott"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "link": "https://open.spotify.com",
+      "samsung": "3201606009684",
+      "pkg": "com.spotify.tv.android"
+    },
+    {
+      "id": "optimum",
+      "name": "Optimum TV",
+      "link": null,
+      "samsung": null,
+      "pkg": "com.altice.optimum.tv",
+      "boxOnly": true
+    }
   ]
 }

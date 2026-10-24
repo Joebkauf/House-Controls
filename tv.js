@@ -162,6 +162,11 @@ function samsung(cfg, onChange, saveToken) {
     },
     powerToggle: () => (t.powered === false ? t.powerOn() : t.powerOff()),
     artMode: () => key('KEY_POWER'),
+    sendKey: (code) => key(code),
+    launchApp: async (appId) => {
+      const r = await fetchJson(`http://${cfg.host}:${cfg.infoPort || 8001}/api/v2/applications/${appId}`, { method: 'POST' }, 4000);
+      if (!r.ok) throw new Error(`Samsung TV would not open that app (${r.status})`);
+    },
     allow: () => connect(),
     close: () => { clearTimeout(idle); try { ws && ws.close(); } catch {} },
     poll,
@@ -194,4 +199,13 @@ function ssdpSearch(ms = 2500) {
   });
 }
 
-module.exports = { sony, samsung, wakeOnLan, ssdpSearch };
+// Android-style key names → Samsung remote key codes, for a room with a TV and no box.
+const SAMSUNG_KEYS = {
+  DPAD_UP: 'KEY_UP', DPAD_DOWN: 'KEY_DOWN', DPAD_LEFT: 'KEY_LEFT', DPAD_RIGHT: 'KEY_RIGHT', DPAD_CENTER: 'KEY_ENTER', ENTER: 'KEY_ENTER',
+  BACK: 'KEY_RETURN', HOME: 'KEY_HOME', MENU: 'KEY_MENU', INFO: 'KEY_INFO', GUIDE: 'KEY_GUIDE', CAPTIONS: 'KEY_CAPTION', TV_INPUT: 'KEY_SOURCE',
+  CHANNEL_UP: 'KEY_CHUP', CHANNEL_DOWN: 'KEY_CHDOWN', LAST_CHANNEL: 'KEY_PRECH', MEDIA_PLAY_PAUSE: 'KEY_PLAY', MEDIA_REWIND: 'KEY_REWIND', MEDIA_FAST_FORWARD: 'KEY_FF',
+  VOLUME_UP: 'KEY_VOLUP', VOLUME_DOWN: 'KEY_VOLDOWN', MUTE: 'KEY_MUTE', VOLUME_MUTE: 'KEY_MUTE',
+  0: 'KEY_0', 1: 'KEY_1', 2: 'KEY_2', 3: 'KEY_3', 4: 'KEY_4', 5: 'KEY_5', 6: 'KEY_6', 7: 'KEY_7', 8: 'KEY_8', 9: 'KEY_9',
+};
+
+module.exports = { sony, samsung, wakeOnLan, ssdpSearch, SAMSUNG_KEYS };
