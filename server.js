@@ -313,7 +313,7 @@ app.get('/', (_req, res) => {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TV">
+<meta name="apple-mobile-web-app-title" content="House">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head><body>${PAGE}</body></html>`);
 });

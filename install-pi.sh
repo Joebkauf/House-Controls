@@ -2,12 +2,12 @@
 # Optimum Remote: put the bridge on a Raspberry Pi (Raspberry Pi OS, 64-bit) and
 # keep it running at boot. Safe to run again later: it updates in place.
 #
-#   curl -fsSL https://raw.githubusercontent.com/joebkauf/optimum-remote/main/install-pi.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Joebkauf/house-controls/main/install-pi.sh | bash
 #
 # Afterwards the remote is at  http://tv.local:4680  on the house Wi-Fi.
 set -euo pipefail
-REPO="${REPO:-https://github.com/joebkauf/optimum-remote.git}"
-DIR="${DIR:-/opt/optimum-remote}"
+REPO="${REPO:-https://github.com/Joebkauf/house-controls.git}"
+DIR="${DIR:-/opt/house-controls}"
 NAME="${NAME:-tv}"          # the Pi's name on the network → http://tv.local:4680
 PORT="${PORT:-4680}"
 
@@ -38,9 +38,9 @@ say "Installing its pieces"
 (cd "$DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error)
 
 say "Making it start at boot"
-sudo tee /etc/systemd/system/optimum-remote.service >/dev/null <<UNIT
+sudo tee /etc/systemd/system/house-controls.service >/dev/null <<UNIT
 [Unit]
-Description=Optimum Remote bridge
+Description=House Controls bridge
 After=network-online.target
 Wants=network-online.target
 
@@ -57,8 +57,8 @@ RestartSec=3
 WantedBy=multi-user.target
 UNIT
 sudo systemctl daemon-reload
-sudo systemctl enable --quiet optimum-remote
-sudo systemctl restart optimum-remote
+sudo systemctl enable --quiet house-controls
+sudo systemctl restart house-controls
 
 if [ "$(hostname)" != "$NAME" ]; then
   say "Naming this Pi '$NAME' so the address is http://$NAME.local:$PORT"
@@ -76,5 +76,5 @@ if curl -fs "http://127.0.0.1:$PORT/api/state" >/dev/null; then
   echo "Then: Safari share button → Add to Home Screen. Setup is the ⚙ at the bottom left."
 else
   say "The bridge did not answer yet. Its log:"
-  sudo journalctl -u optimum-remote -n 30 --no-pager
+  sudo journalctl -u house-controls -n 30 --no-pager
 fi

@@ -30,7 +30,7 @@ On the desktop, click the black **Terminal** icon in the top bar, then type
 (or paste) this line and press Enter:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/joebkauf/optimum-remote/main/install-pi.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Joebkauf/house-controls/main/install-pi.sh | bash
 ```
 
 It downloads the bridge, installs what it needs, sets it to start every
@@ -54,7 +54,7 @@ Unplug the keyboard, mouse and HDMI. The Pi lives by the router from now on.
 
 - **Update** (after I push a fix): run the same command from step 3 again,
   or from any computer on the Wi-Fi: `ssh tv@tv.local` then the command.
-- **Logs** if something is off: `sudo journalctl -u optimum-remote -f`
+- **Logs** if something is off: `sudo journalctl -u house-controls -f`
 - **Fixed IPs**: in the router, reserve addresses for the Pi, every TV,
   every box and every blaster so nothing moves.
 - **Florida**: same box, same steps. Its rooms are its own.

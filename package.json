@@ -1,5 +1,5 @@
 {
-  "name": "optimum-remote",
+  "name": "house-controls",
   "version": "0.1.0",
   "description": "iPad remote for Optimum Stream (Android TV) boxes: a small LAN bridge plus a one-page touch UI",
   "main": "server.js",

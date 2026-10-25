@@ -1,4 +1,4 @@
-# Optimum Remote
+# House Controls
 
 An iPad and iPhone remote for the house's TVs: pick a room, tap Netflix or
 Prime or a channel, and go. Every room has a TV (Sony or Samsung) and,
