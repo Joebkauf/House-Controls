@@ -2,11 +2,11 @@
 # Optimum Remote: put the bridge on a Raspberry Pi (Raspberry Pi OS, 64-bit) and
 # keep it running at boot. Safe to run again later: it updates in place.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Joebkauf/house-controls/main/install-pi.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Joebkauf/House-Controls/main/install-pi.sh | bash
 #
 # Afterwards the remote is at  http://tv.local:4680  on the house Wi-Fi.
 set -euo pipefail
-REPO="${REPO:-https://github.com/Joebkauf/house-controls.git}"
+REPO="${REPO:-https://github.com/Joebkauf/House-Controls.git}"
 DIR="${DIR:-/opt/house-controls}"
 NAME="${NAME:-tv}"          # the Pi's name on the network → http://tv.local:4680
 PORT="${PORT:-4680}"

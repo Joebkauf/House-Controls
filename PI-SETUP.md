@@ -30,7 +30,7 @@ On the desktop, click the black **Terminal** icon in the top bar, then type
 (or paste) this line and press Enter:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Joebkauf/house-controls/main/install-pi.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Joebkauf/House-Controls/main/install-pi.sh | bash
 ```
 
 It downloads the bridge, installs what it needs, sets it to start every
