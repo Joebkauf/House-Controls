@@ -93,7 +93,7 @@ function sony(cfg, onChange) {
 
 // ---------------- Samsung Tizen ------------------------------------------
 function samsung(cfg, onChange, saveToken) {
-  const name = Buffer.from('Optimum Remote').toString('base64');
+  const name = Buffer.from(cfg.clientName || 'House Controls').toString('base64');
   const port = cfg.port || 8002;
   const scheme = cfg.plainWs ? 'ws' : 'wss';
   let ws = null, ready = null, idle = null;

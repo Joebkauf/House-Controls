@@ -138,7 +138,16 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 
 /* sheets */
 .sheet { position: fixed; inset: 0; background: rgba(8,12,18,.6); display: grid; place-items: center; padding: 16px; z-index: 20; }
-.sheet > div { background: var(--panel); border-radius: 18px; padding: 20px; width: min(560px, 100%); max-height: 90%; overflow-y: auto; display: grid; gap: 14px; box-shadow: var(--shadow); box-sizing: border-box; }
+.sheet > div { background: var(--panel); border-radius: 18px; padding: 20px; width: min(560px, 100%); max-height: 90%; overflow-y: auto; display: grid; gap: 14px; box-shadow: var(--shadow); box-sizing: border-box; zoom: 1.4; }
+@media (max-width: 900px) { .sheet > div { zoom: 1.15; } }
+@media (max-width: 640px) { .sheet > div { zoom: 1; } }
+.idpanel { background: var(--bg); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.idpanel .big { font-family: var(--display); font-size: 22px; font-weight: 700; }
+.idlist { display: grid; gap: 4px; font-size: 14px; }
+.idlist .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.idlist .row .btn { padding: 6px 10px; font-size: 13px; }
+.idlist .st { color: var(--muted); font-size: 13px; }
+.idlist .st.ok { color: var(--ok); font-weight: 600; }
 .sheet h2 { margin: 0; font-family: var(--display); font-size: 26px; font-weight: 700; }
 .sheet h3 { margin: 10px 0 0; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .sheet p { margin: 0; color: var(--muted); max-width: 60ch; }
@@ -418,6 +427,9 @@ async function demoApi(path, body) {
     b.irLearning = body.key; render(); await new Promise((r) => setTimeout(r, 1500)); b.irLearning = null; k.learned = true; demoSave(); render(); return { ok: true };
   }
   if (path === '/api/update') throw new Error('The demo page has nothing to update.');
+  if (path === '/api/identify') { state.identify = { active: true, matched: null, boxes: [{ host: '192.168.1.52', status: 'pairing', needsCode: true, room: null }, { host: '192.168.1.53', status: 'pairing', needsCode: true, room: null }], tvs: [{ host: '192.168.1.61', status: 'needs-allow', allowed: false, room: 'Bedroom' }, { host: '192.168.1.63', status: 'needs-allow', allowed: false, room: null }] }; render(); return state.identify; }
+  if (path === '/api/identify/stop') { state.identify = null; render(); return { ok: true }; }
+  if (path === '/api/identify/code') { if (!body.code || body.code.length < 4) throw new Error('that code did not match any box. Read it again from the TV in front of you'); const id = state.identify; id.matched = '192.168.1.53'; id.boxes = id.boxes.map((b) => ({ ...b, needsCode: false, status: b.host === id.matched ? 'ready' : 'needs-pairing' })); id.active = true; render(); return { host: id.matched }; }
   if (/\/pair\/cancel$/.test(path)) { const b = state.boxes.find((x) => path.includes('/' + x.id + '/')); if (b) { b.status = b.host ? 'needs-pairing' : 'no-box'; b.needsCode = false; } demoSave(); render(); return { ok: true }; }
   const fm = path.match(/^\/api\/box\/([^/]+)\/focus$/);
   if (fm) { const b = state.boxes.find((x) => x.id === fm[1]); b.focus = body.focus === 'tv' ? 'tv' : 'box'; demoSave(); render(); return { ok: true }; }
@@ -604,8 +616,38 @@ function tvForm(x) {
     <div class="row2"><button class="btn" id="tvCancel" type="button">Cancel</button><button class="btn pri" id="tvSave" type="button">Save TV</button></div>
   </div>`;
 }
+let idCodeDraft = '';
+function identifyPanel() {
+  const id = state.identify;
+  if (!id) return `<div class="idpanel">
+    <div class="big">Don't know which address is which?</div>
+    <p>Tap this and every TV in the house shows its own address on screen: each box puts up a pairing code, each Samsung asks to allow "House Controls · TV &lt;address&gt;". Then, in whichever room you are, type the code you see and the right box is picked and paired for you.</p>
+    <div><button class="btn pri" id="identifyStart" type="button">Show every TV its address</button></div>
+  </div>`;
+  const asking = id.boxes.filter((b) => b.needsCode);
+  return `<div class="idpanel">
+    <div class="big">${id.matched ? `This room's box is ${esc(id.matched)}` : (id.active ? 'Look at the TV in front of you' : 'Done looking')}</div>
+    ${id.matched ? `<p>It is paired and filled in below. Now the TV: on a Samsung, press <b>Allow</b> on the set and tap its address here; the Allow box on the TV names it.</p>` : (id.active ? `<p>Each box's TV shows a six-character code${asking.length ? '' : ' (waiting for the boxes to answer…)'}. Type the one you see:</p>
+    <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>Use this box</button></div>` : '')}
+    <div class="idlist">
+      ${id.boxes.map((b) => `<div class="row"><span>Box ${esc(b.host)}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></div>`).join('')}
+      ${id.tvs.map((t) => `<div class="row"><span>Samsung TV ${esc(t.host)}${t.room ? ` · already in ${esc(t.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${t.allowed ? 'ok' : ''}">${t.allowed ? 'allowed ✓' : t.status === 'needs-allow' ? 'press Allow on the TV' : esc(t.status)}</span><button class="btn" data-idtv="${esc(t.host)}" type="button">This room's TV</button></span></div>`).join('')}
+      ${!id.boxes.length && !id.tvs.length ? '<div class="st">Nothing answered. Turn the TVs and boxes on and try again.</div>' : ''}
+    </div>
+    <div class="row2"><button class="btn" id="identifyStop" type="button">Clear the TVs</button><button class="btn" id="identifyStart" type="button">Show again</button></div>
+  </div>`;
+}
 function renderSheet() {
   const host = $('#sheetHost');
+  const keep = {}; ['nbName', 'nbHost', 'nbTvHost', 'nbPsk', 'tvHost', 'tvPsk', 'pairCode'].forEach((k) => { const el = document.getElementById(k); if (el) keep[k] = el.value; });
+  const keepSeg = {}; ['nbType', 'nbBrand'].forEach((k) => { const on = document.querySelector(`#${k} .on`); if (on) keepSeg[k] = on.dataset.nbtype || on.dataset.nbbrand; });
+  const keepScroll = host.firstElementChild && host.firstElementChild.firstElementChild ? host.firstElementChild.firstElementChild.scrollTop : 0;
+  const restore = () => {
+    Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById(k); if (el && !el.value) el.value = v; });
+    Object.entries(keepSeg).forEach(([k, v]) => { const b = document.querySelector(`#${k} [data-nbtype="${v}"], #${k} [data-nbbrand="${v}"]`); if (b && !b.classList.contains('on')) b.click(); });
+    const box = host.firstElementChild && host.firstElementChild.firstElementChild; if (box && keepScroll) box.scrollTop = keepScroll;
+  };
+  setTimeout(restore, 0);
   const pairing = state.boxes.find((x) => x.status === 'pairing' && x.needsCode);
   const pairingTv = state.boxes.find((x) => x.tv && x.tv.linkNeedsCode);
   for (const k of [...dismissedPair]) { const [id, tg] = k.split(':'); const x = state.boxes.find((b) => b.id === id); const still = x && (tg === 'tv' ? x.tv && x.tv.linkNeedsCode : x.status === 'pairing' && x.needsCode); if (!still) dismissedPair.delete(k); }
@@ -660,6 +702,7 @@ function renderSheet() {
       ${tvEdit === x.id ? tvForm(x) : ''}
       </div>`).join('') || '<p>No boxes yet.</p>'}
     <h3>Add a room</h3>
+    ${identifyPanel()}
     <input id="nbName" placeholder="Room name (Living Room)">
     <div><span class="lbl">Cable box</span><br><div class="seg wrap" id="nbType">${[['none','None (TV only)'],['androidtv','Optimum Stream / Android TV box'],['directv','DirecTV Genie'],['ir','Other box, via infrared blaster']].map(([v,l]) => `<button type="button" data-nbtype="${v}" class="${v==='androidtv'?'on':''}">${l}</button>`).join('')}</div></div>
     <input id="nbHost" placeholder="Box IP (192.168.1.50)" inputmode="decimal">
@@ -743,6 +786,28 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-reconnect]'))) return api(`/api/box/${el.dataset.reconnect}/reconnect`).catch((err) => toast(err.message));
   if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
   if ((el = btn('[data-nbbrand]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
+  if (btn('#identifyStart')) { toast('Asking every TV and box… look at the screens', 4000); return api('/api/identify', {}).then(() => renderSheet()).catch((err) => toast(err.message)); }
+  if (btn('#identifyStop')) { return api('/api/identify/stop', {}).then(() => { if (state.identify) state.identify = null; renderSheet(); }).catch((err) => toast(err.message)); }
+  if (btn('#idCodeSend')) {
+    const code = ($('#idCode') || {}).value || ''; idCodeDraft = '';
+    toast('Checking that code against every box…', 3000);
+    return api('/api/identify/code', { code }).then((r) => {
+      const name = ($('#nbName') || {}).value || '';
+      renderSheet();
+      if ($('#nbName')) $('#nbName').value = name;
+      const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb) tb.click();
+      if ($('#nbHost')) $('#nbHost').value = r.host;
+      toast(`Box ${r.host} is this room's box, paired. Now name the room and pick its TV.`, 5000);
+    }).catch((err) => toast(err.message, 6000));
+  }
+  if ((el = btn('[data-idtv]'))) {
+    const name = ($('#nbName') || {}).value || '', host = ($('#nbHost') || {}).value || '';
+    const sb = $('#nbBrand [data-nbbrand="samsung"]'); if (sb) sb.click();
+    if ($('#nbTvHost')) $('#nbTvHost').value = el.dataset.idtv;
+    if ($('#nbName')) $('#nbName').value = name; if ($('#nbHost')) $('#nbHost').value = host;
+    toast(`TV ${el.dataset.idtv} filled in. Name the room and tap Add room.`, 4000);
+    return;
+  }
   if ((el = btn('[data-nbtype]'))) {
     el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
     const t = el.dataset.nbtype; const h = $('#nbHost'); h.disabled = t === 'none';
@@ -777,7 +842,8 @@ document.addEventListener('click', (e) => {
   }
   if ((el = btn('[data-enter]'))) return saveConfig({ channelEnter: el.dataset.enter });
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'pairCode') $('#pairSend').click(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'pairCode') $('#pairSend').click(); if (e.key === 'Enter' && e.target.id === 'idCode') $('#idCodeSend').click(); });
+document.addEventListener('input', (e) => { if (e.target.id === 'idCode') idCodeDraft = e.target.value; });
 function commitEdits() {
   document.querySelectorAll('.tile.editing').forEach((tile) => {
     const c = state.channels[+tile.dataset.i]; if (!c) return;

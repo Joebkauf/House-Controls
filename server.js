@@ -57,6 +57,7 @@ let config = loadConfig();
 // room = { cfg, box: <androidtv link | cable driver | null>, tv: <tv driver | null>, sonyLink: <androidtv link | null>, focus }
 const rooms = new Map();
 const listeners = new Set();
+const identify = { active: false, boxes: new Map(), tvs: new Map(), found: null, matched: null, timer: null }; // the "show every TV its address" session
 function broadcast() {
   const payload = `data: ${JSON.stringify(publicState())}\n\n`;
   for (const res of listeners) res.write(payload);
@@ -91,39 +92,47 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter };
+  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify() };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
 let AndroidRemote, RemoteKeyCode, RemoteDirection;
 if (!DEMO) ({ AndroidRemote, RemoteKeyCode, RemoteDirection } = require('androidtv-remote'));
-const certPath = (id) => path.join(CERT_DIR, `${id}.json`);
-const readCert = (id) => { try { return JSON.parse(fs.readFileSync(certPath(id), 'utf8')); } catch { return null; } };
+// Pairing certificates are kept per DEVICE ADDRESS, so a box paired once (even
+// from the "show every TV its address" step) stays paired whatever room it lands in.
+const certPath = (key) => path.join(CERT_DIR, `${String(key).replace(/[^0-9A-Za-z.-]/g, '_')}.json`);
+const readCertFile = (key) => { try { return JSON.parse(fs.readFileSync(certPath(key), 'utf8')); } catch { return null; } };
+const readCert = (id, host) => readCertFile(host) || (id && readCertFile(id)) || null;
 
-function androidLink(id, host, label) {
+// Samsung "Allow" tokens, also per TV address.
+const TOKENS_PATH = path.join(DATA_DIR, 'tv-tokens.json');
+const readTokens = () => { try { return JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8')); } catch { return {}; } };
+const saveTvToken = (host, token) => { const all = readTokens(); all[host] = token; fs.writeFileSync(TOKENS_PATH, JSON.stringify(all, null, 2)); };
+
+function androidLink(id, host, label, serviceName) {
   // status: needs-pairing | pairing | connecting | ready | offline
   const L = { id, host, label, status: 'needs-pairing', needsCode: false, powered: null, volume: null, app: null, lastError: null, remote: null, lastChannel: null };
   L.connect = async ({ pair = false } = {}) => {
     if (DEMO) { L.status = 'ready'; L.powered = true; L.volume = L.volume || { level: 12, max: 40, muted: false }; L.app = L.app || 'com.altice.optimum.tv'; broadcast(); return; }
     if (L.remote) { try { L.remote.stop(); } catch {} L.remote = null; }
-    const cert = pair ? null : readCert(id);
+    const cert = pair ? null : readCert(id, host);
     if (!cert && !pair) { L.status = 'needs-pairing'; broadcast(); return; }
     L.status = pair ? 'pairing' : 'connecting'; L.lastError = null; broadcast();
-    const remote = new AndroidRemote(host, { pairing_port: 6467, remote_port: 6466, service_name: 'Optimum Remote', cert: cert || {} });
+    const remote = new AndroidRemote(host, { pairing_port: 6467, remote_port: 6466, service_name: serviceName || 'House Controls', cert: cert || {} });
     L.remote = remote;
     remote.on('secret', () => { L.status = 'pairing'; L.needsCode = true; broadcast(); });
     remote.on('powered', (p) => { L.powered = p; broadcast(); });
     remote.on('volume', (v) => { L.volume = { level: v.level, max: v.maximum, muted: v.muted }; broadcast(); });
     remote.on('current_app', (a) => { L.app = a; broadcast(); });
     remote.on('error', (e) => { L.lastError = String(e && e.error ? JSON.stringify(e.error) : e); log(`[${id}] error`, L.lastError); broadcast(); });
-    remote.on('unpaired', () => { log(`[${id}] ${label} says we are not paired`); try { fs.unlinkSync(certPath(id)); } catch {} L.status = 'needs-pairing'; L.remote = null; broadcast(); });
-    remote.on('ready', () => { L.status = 'ready'; L.needsCode = false; fs.writeFileSync(certPath(id), JSON.stringify(remote.getCertificate())); log(`[${id}] ready`); broadcast(); });
+    remote.on('unpaired', () => { log(`[${id}] ${label} says we are not paired`); try { fs.unlinkSync(certPath(host)); } catch {} try { fs.unlinkSync(certPath(id)); } catch {} L.status = 'needs-pairing'; L.remote = null; broadcast(); });
+    remote.on('ready', () => { L.status = 'ready'; L.needsCode = false; fs.writeFileSync(certPath(host), JSON.stringify(remote.getCertificate())); log(`[${id}] ready`); broadcast(); });
     try {
       const started = await remote.start();
       if (!started && L.status !== 'ready') { L.status = cert ? 'offline' : 'needs-pairing'; L.needsCode = false; L.lastError = L.lastError || (pair ? 'the box stopped asking for a code; tap Pair again' : 'could not connect'); broadcast(); }
     } catch (e) { L.status = cert ? 'offline' : 'needs-pairing'; L.needsCode = false; L.lastError = e.code || e.message || String(e); log(`[${id}] connect failed`, L.lastError); broadcast(); }
   };
-  L.cancelPairing = () => { L.close(); L.needsCode = false; L.status = readCert(id) ? 'offline' : 'needs-pairing'; L.lastError = null; broadcast(); if (readCert(id)) L.connect(); };
+  L.cancelPairing = () => { L.close(); L.needsCode = false; L.status = readCert(id, host) ? 'offline' : 'needs-pairing'; L.lastError = null; broadcast(); if (readCert(id, host)) L.connect(); };
   L.notReady = () => err(`${label}: ${{ 'needs-pairing': 'not paired yet (⚙ → Pair)', pairing: 'still pairing', connecting: 'connecting', offline: 'not reachable' }[L.status] || L.status}`, 409);
   L.sendKey = (name) => {
     if (L.status !== 'ready') throw L.notReady();
@@ -189,7 +198,7 @@ function attachTv(r) {
     if (sig) {
       if (DEMO) r.tv = demoTv(cfg);
       else if (cfg.brand === 'sony') r.tv = TV.sony(cfg, broadcast);
-      else if (cfg.brand === 'samsung') r.tv = TV.samsung(cfg, broadcast, (token) => { cfg.token = token; saveConfig(config); });
+      else if (cfg.brand === 'samsung') { if (!cfg.token && readTokens()[cfg.host]) { cfg.token = readTokens()[cfg.host]; saveConfig(config); } r.tv = TV.samsung({ ...cfg, clientName: `House Controls · TV ${cfg.host}` }, broadcast, (token) => { cfg.token = token; saveConfig(config); saveTvToken(cfg.host, token); }); }
       if (r.tv && !DEMO) { r.tv.poll().catch(() => {}); r.tvPoll = setInterval(() => r.tv && r.tv.poll().catch(() => {}), 15000); }
     }
   }
@@ -388,8 +397,8 @@ app.post('/api/box/:id/tv/allow', wrap(async (req, res) => {
 }));
 
 // Find things on the LAN: Android TV boxes (mDNS), TVs (SSDP), infrared blasters (Broadlink).
-app.get('/api/discover', wrap(async () => {
-  if (DEMO) return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }], tvs: [{ brand: 'sony', host: '192.168.1.60' }, { brand: 'samsung', host: '192.168.1.61' }], blasters: [{ host: '192.168.2.40', model: 'RM4 mini (demo)', mac: 'aa:bb:cc:00:11:22', devType: 20992 }] };
+async function discoverAll() {
+  if (DEMO) return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }, { name: 'Optimum Stream (2)', host: '192.168.1.53' }], tvs: [{ brand: 'sony', host: '192.168.1.60' }, { brand: 'samsung', host: '192.168.1.61' }, { brand: 'samsung', host: '192.168.1.63' }], blasters: [{ host: '192.168.2.40', model: 'RM4 mini (demo)', mac: 'aa:bb:cc:00:11:22', devType: 20992 }] };
   const { Bonjour } = require('bonjour-service');
   const bonjour = new Bonjour();
   const found = new Map();
@@ -400,6 +409,65 @@ app.get('/api/discover', wrap(async () => {
   const [tvs, blasters] = await Promise.all([TV.ssdpSearch(3000), CABLE.discoverBlasters(), sleep(3000)]);
   browser.stop(); bonjour.destroy();
   return { found: [...found.values()], tvs, blasters };
+}
+app.get('/api/discover', wrap(() => discoverAll()));
+
+// "Show every TV its own address": start a pairing with EVERY box found (each TV
+// shows a code) and an Allow request on EVERY Samsung, each named with its own
+// address. The person types the code on the TV in front of them; whichever box
+// accepts it is that room's box, already paired.
+const roomOf = (host) => (config.boxes.find((b) => b.host === host || (b.tv && b.tv.host === host)) || {}).name || null;
+function publicIdentify() {
+  if (!identify.active && !identify.matched) return null;
+  return {
+    active: identify.active, matched: identify.matched,
+    boxes: [...identify.boxes.values()].map((L) => ({ host: L.host, status: L.status, needsCode: L.needsCode, error: L.lastError, room: roomOf(L.host) })),
+    tvs: [...identify.tvs.values()].map((t) => ({ host: t.host, status: t.status, allowed: !!t.token, room: roomOf(t.host) })),
+  };
+}
+function stopIdentify({ keepTvs = false } = {}) {
+  for (const L of identify.boxes.values()) L.close();
+  identify.boxes.clear();
+  if (!keepTvs) { for (const t of identify.tvs.values()) { try { t.close(); } catch {} } identify.tvs.clear(); }
+  identify.active = !!(keepTvs && identify.tvs.size);
+  clearTimeout(identify.timer);
+  broadcast();
+}
+async function startIdentify() {
+  stopIdentify(); identify.matched = null;
+  const d = await discoverAll(); identify.found = d;
+  for (const f of d.found) {
+    const L = androidLink(`find-${f.host}`, f.host, `box ${f.host}`, `House Controls · box ${f.host}`);
+    identify.boxes.set(f.host, L);
+    if (DEMO) { L.status = 'pairing'; L.needsCode = true; } else L.connect({ pair: true });
+  }
+  for (const t of d.tvs) {
+    if (t.brand !== 'samsung') continue;
+    const tv = DEMO ? { host: t.host, status: 'needs-allow', token: null, close() {} } : TV.samsung({ host: t.host, token: null, clientName: `House Controls · TV ${t.host}` }, broadcast, (token) => saveTvToken(t.host, token));
+    tv.host = t.host; identify.tvs.set(t.host, tv);
+    if (!DEMO) tv.allow().then(broadcast).catch(() => broadcast());
+  }
+  identify.active = true;
+  identify.timer = setTimeout(() => stopIdentify(), 10 * 60 * 1000);
+  broadcast();
+  return publicIdentify();
+}
+app.post('/api/identify', wrap(() => startIdentify()));
+app.post('/api/identify/stop', wrap(async () => { stopIdentify(); return { ok: true }; }));
+app.post('/api/identify/code', wrap(async (req) => {
+  const code = String(req.body.code || '').trim().toUpperCase();
+  if (!code) throw err('type the code on the TV');
+  const asking = [...identify.boxes.values()].filter((L) => L.needsCode);
+  if (!asking.length) throw err('no box is showing a code right now; tap "Show every TV its address" again', 409);
+  if (DEMO) { const L = asking[0]; L.status = 'ready'; L.needsCode = false; identify.matched = L.host; stopIdentify({ keepTvs: true }); return { host: L.host }; }
+  for (const L of asking) { try { L.sendCode(code); } catch {} }
+  const until = Date.now() + 8000;
+  while (Date.now() < until) {
+    const hit = asking.find((L) => L.status === 'ready');
+    if (hit) { identify.matched = hit.host; stopIdentify({ keepTvs: true }); return { host: hit.host }; }
+    await sleep(250);
+  }
+  throw err('that code did not match any box. Read it again from the TV in front of you and tap "Show every TV its address" once more', 409);
 }));
 
 // Update the bridge in place: pull the newest code, install, exit (systemd restarts it).
