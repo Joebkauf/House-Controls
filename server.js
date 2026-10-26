@@ -203,7 +203,9 @@ function androidLink(id, host, label, serviceName) {
     L.remote.sendKey(k, RemoteDirection.SHORT);
   };
   L.tune = async (digits) => {
-    for (const d of digits) { L.sendKey(d); await sleep(220); }
+    // The first digit opens the box's number box; a second digit 220 ms behind it was being lost while that
+    // opened (Golf 224 landed on 24). Give the first digit room, then a steadier pace for the rest.
+    for (let i = 0; i < digits.length; i++) { L.sendKey(digits[i]); await sleep(i === 0 ? 700 : 320); }
     if (config.channelEnter === 'enter') L.sendKey('ENTER');
     if (config.channelEnter === 'center') L.sendKey('DPAD_CENTER');
     L.lastChannel = digits;
@@ -390,7 +392,7 @@ async function tuneChannel(r, number) {
   if (!digits) throw err('no channel number');
   r.focus = 'box';
   if (r.cfg.boxType === 'none' || !r.box) { // TV-only room: the TV's own tuner
-    for (const d of digits) { await sendKey(r, d); await sleep(300); }
+    for (let i = 0; i < digits.length; i++) { await sendKey(r, digits[i]); await sleep(i === 0 ? 700 : 320); }
     if (config.channelEnter !== 'none') await sendKey(r, 'ENTER');
   } else if (r.cfg.boxType === 'androidtv') await r.box.tune(digits);
   else await r.box.tune(digits);
