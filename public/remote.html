@@ -255,7 +255,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
   .tile .name { font-size: 20px; }
   .now { width: 100%; text-align: left; }
   /* the rail sits above the wall on a phone: its height must never change, or the wall jumps */
-  #boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; }
+  #boxes { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .box { min-width: 0; } .box .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .now .big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 22px; }
   .now .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
