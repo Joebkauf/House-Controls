@@ -318,12 +318,16 @@ async function sendKey(r, name) {
   if (name === 'ART_MODE') throw err('Art mode is turned off in this app');
   // CH up / down on a Stream box walk the channel wall (next / previous number we know), so the step is
   // visible on the wall and never lands on a channel nobody put there. Without a known channel, the raw key goes.
-  if ((name === 'CHANNEL_UP' || name === 'CHANNEL_DOWN') && r.cfg.boxType === 'androidtv' && r.box && r.box.lastChannel) {
+  if ((name === 'CHANNEL_UP' || name === 'CHANNEL_DOWN') && r.cfg.boxType === 'androidtv' && r.box) {
     const nums = [...new Set(config.channels.map((c) => Number(c.number)).filter((n) => n > 0))].sort((a, z) => a - z);
-    const cur = Number(r.box.lastChannel); const i = nums.indexOf(cur);
     const up = name === 'CHANNEL_UP';
-    const next = i >= 0 ? nums[(i + (up ? 1 : nums.length - 1)) % nums.length] : (up ? nums.find((n) => n > cur) || nums[0] : [...nums].reverse().find((n) => n < cur) || nums[nums.length - 1]);
-    if (next) { await tuneChannel(r, next); return; }
+    if (nums.length) {
+      const cur = Number(r.box.lastChannel || 0); const i = nums.indexOf(cur);
+      // no channel known yet (fresh boot, or the box was in an app): start at the first / last channel on the wall
+      const next = i >= 0 ? nums[(i + (up ? 1 : nums.length - 1)) % nums.length] : (up ? nums.find((n) => n > cur) || nums[0] : [...nums].reverse().find((n) => n < cur) || nums[nums.length - 1]);
+      await tuneChannel(r, next); return;
+    }
+    r.box.sendKey(name); return; // an empty wall: the raw key, straight to the box
   }
   if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER')) {
     if (!r.tv[tvAct]) throw err(`the ${r.tv.brand} TV cannot do ${name}`);

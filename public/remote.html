@@ -58,7 +58,8 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .box { text-align: left; border-radius: 12px; padding: 10px 12px; border: 1px solid transparent; display: grid; gap: 3px; }
 .box.on { background: var(--tile); border-color: var(--line); }
 .box .nm { font-family: var(--display); font-size: 19px; font-weight: 600; }
-.box .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.box .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.box .st > span, .box .st { overflow: hidden; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .dot.ready { background: var(--ok); } .dot.pairing, .dot.connecting { background: var(--warn); } .dot.offline, .dot.needs-pairing { background: var(--bad); }
 .now { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 4px; }
@@ -115,6 +116,13 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
+.apppanel { grid-column: 1 / -1; background: var(--panel); border-radius: 16px; padding: 12px 14px; display: grid; gap: 10px; box-shadow: var(--shadow); }
+.aphead { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; } .aphead .st { color: var(--muted); font-size: 13px; }
+.apbody { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.apppanel .dpad { display: grid; grid-template-columns: repeat(3, 62px); grid-auto-rows: 54px; gap: 6px; }
+.apppanel .dpad .k { font-size: 22px; } .apppanel .dpad .k.ok { font-weight: 700; font-size: 17px; }
+.apkeys { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; } .apkeys .k { min-height: 50px; font-size: 15px; }
+@media (max-width: 640px) { .apbody { grid-template-columns: 1fr; justify-items: center; } .apppanel .dpad { grid-template-columns: repeat(3, 72px); grid-auto-rows: 58px; } .apkeys { width: 100%; grid-template-columns: repeat(3, 1fr); } }
 .people { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 2px 0; }
 .people.lbl { padding-top: 6px; }
 .pchip { padding: 9px 14px; border-radius: 999px; background: var(--tile); font-weight: 600; font-size: 14px; box-shadow: var(--shadow); }
@@ -246,6 +254,11 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
   .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .tile .name { font-size: 20px; }
   .now { width: 100%; text-align: left; }
+  /* the rail sits above the wall on a phone: its height must never change, or the wall jumps */
+  #boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; }
+  .box { min-width: 0; } .box .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .now .big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 22px; }
+  .now .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -302,17 +315,17 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
       <button class="k" data-key="MEDIA_PLAY_PAUSE" type="button">Play ⏯</button>
     </div>
     <div class="stack">
-      <span class="lbl">Type a channel</span>
-      <div class="entry" id="entry">&nbsp;</div>
-      <div class="keypad" id="keypad"></div>
-    </div>
-    <div class="stack">
       <span class="lbl">Navigate</span>
       <div class="dpad">
         <span class="k blank"></span><button class="k" data-key="DPAD_UP" type="button">↑</button><span class="k blank"></span>
         <button class="k" data-key="DPAD_LEFT" type="button">←</button><button class="k" data-key="DPAD_CENTER" type="button">OK</button><button class="k" data-key="DPAD_RIGHT" type="button">→</button>
         <span class="k blank"></span><button class="k" data-key="DPAD_DOWN" type="button">↓</button><span class="k blank"></span>
       </div>
+    </div>
+    <div class="stack">
+      <span class="lbl">Type a channel</span>
+      <div class="entry" id="entry">&nbsp;</div>
+      <div class="keypad" id="keypad"></div>
     </div>
   </aside>
 </div>
@@ -630,7 +643,20 @@ async function saveConfig(patch) {
 // ---------- render ----------------------------------------------------------
 // Swap an element's HTML only when it really changed, keeping its scroll: state pushes arrive every few
 // seconds and a full redraw made the wall jump under a finger.
-function setHTML(el, html) { if (el.__html === html) return; const top = el.scrollTop; el.__html = html; el.innerHTML = html; if (top) el.scrollTop = top; }
+function setHTML(el, html) {
+  if (el.__html === html) return;
+  el.__html = html;
+  const top = el.scrollTop, left = el.scrollLeft;
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  const next = [...tpl.content.children], cur = [...el.children];
+  if (cur.length && cur.length === next.length && [...tpl.content.childNodes].every((n) => n.nodeType === 1)) {
+    // same number of tiles: swap only the ones that changed, so the rest (and the scroll) stay put
+    for (let i = 0; i < cur.length; i++) if (cur[i].outerHTML !== next[i].outerHTML) el.replaceChild(next[i], cur[i]);
+  } else {
+    el.innerHTML = html;
+  }
+  if (top || left) { el.scrollTop = top; el.scrollLeft = left; requestAnimationFrame(() => { el.scrollTop = top; el.scrollLeft = left; }); }
+}
 function render() {
   const b = box();
   // boxes
@@ -654,7 +680,26 @@ function render() {
   if (tab === 'guide') { renderGuide(b); } else
   if (tab === 'apps') {
     const tvOnly = b && b.boxType !== 'androidtv', samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
-    setHTML($('#grid'), (state.apps || []).map((a) => {
+    const inApp = b && b.app && !/altice|optimum|tvlauncher|launcher/i.test(b.app) && b.powered !== false && (b.status === 'ready' || b.status === 'no-box');
+    const appPanel = inApp ? `<div class="apppanel">
+      <div class="aphead"><span class="lbl">${esc(appName(b.app))} is open on ${esc(b.name)}</span><span class="st">Move around with the arrows, OK picks, Back goes back</span></div>
+      <div class="apbody">
+        <div class="dpad">
+          <span class="k blank"></span><button class="k" data-key="DPAD_UP" type="button">↑</button><span class="k blank"></span>
+          <button class="k" data-key="DPAD_LEFT" type="button">←</button><button class="k ok" data-key="DPAD_CENTER" type="button">OK</button><button class="k" data-key="DPAD_RIGHT" type="button">→</button>
+          <span class="k blank"></span><button class="k" data-key="DPAD_DOWN" type="button">↓</button><span class="k blank"></span>
+        </div>
+        <div class="apkeys">
+          <button class="k" data-key="BACK" type="button">Back</button>
+          <button class="k" data-key="MEDIA_PLAY_PAUSE" type="button">Play ⏯</button>
+          <button class="k" data-key="MEDIA_REWIND" type="button">⏪ 10s</button>
+          <button class="k" data-key="MEDIA_FAST_FORWARD" type="button">10s ⏩</button>
+          <button class="k" data-key="HOME" type="button">Home</button>
+          ${(() => { const live = (state.apps || []).find((a) => /altice|optimum/i.test(a.pkg || '')); return live ? `<button class="k" data-app="${esc(live.id)}" type="button">Live TV</button>` : ''; })()}
+        </div>
+      </div>
+    </div>` : '';
+    setHTML($('#grid'), appPanel + (state.apps || []).map((a) => {
       const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
       const on = b && b.app && a.pkg && b.app === a.pkg;
       const bd = brand(a.name);
