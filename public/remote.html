@@ -520,7 +520,7 @@ function render() {
     ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
   // tabs
   $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
-    + `<span class="sp"></span>${tab === 'apps' ? '' : `<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`;
+    + `<span class="sp"></span>${tab === 'apps' ? '' : `${editing ? '<button class="tab" id="importBtn" type="button">Load lineup</button>' : ''}<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`;
   // grid
   const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? c.fav : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
@@ -654,6 +654,21 @@ function renderSheet() {
   if (pairing && !dismissedPair.has(pairing.id + ':box') && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairing.id, target: 'box' };
   else if (pairingTv && !dismissedPair.has(pairingTv.id + ':tv') && (!sheet || sheet.pair !== pairingTv.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairingTv.id, target: 'tv' };
   if (!sheet) { host.innerHTML = ''; return; }
+  if (sheet === 'import') {
+    host.innerHTML = `<div class="sheet"><div>
+      <h2>Load a channel lineup</h2>
+      <p>Pick a saved lineup, or paste a list: one channel per line, number and name in either order ("2 CBS", "ESPN 28", "702 HBO HD"). Names already on the wall get their numbers filled in; new ones are added.</p>
+      <div id="lineupFiles" class="idlist"><span class="st">Looking for saved lineups…</span></div>
+      <textarea id="lineupText" rows="8" style="font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100%;box-sizing:border-box" placeholder="2 CBS&#10;4 NBC&#10;7 ABC&#10;12 News 12&#10;28 ESPN"></textarea>
+      <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="lineupReplace"> Replace the whole wall (otherwise add to it)</label>
+      <div class="row2"><button class="btn" id="importCancel" type="button">Cancel</button><button class="btn pri" id="importGo" type="button">Load these channels</button></div>
+    </div></div>`;
+    fetch('lineups/index.json').then((r) => r.json()).then((j) => {
+      const el = $('#lineupFiles'); if (!el) return;
+      el.innerHTML = (j.lineups || []).length ? j.lineups.map((l) => `<div class="row"><span>${esc(l.name)} <span class="st">${esc(l.note || '')}</span></span><button class="btn pri" data-lineup="${esc(l.file)}" type="button">Load</button></div>`).join('') : '<span class="st">No saved lineups yet.</span>';
+    }).catch(() => { const el = $('#lineupFiles'); if (el) el.innerHTML = '<span class="st">No saved lineups yet.</span>'; });
+    return;
+  }
   if (sheet.learn) {
     const x = state.boxes.find((b) => b.id === sheet.learn);
     if (!x || !x.irKeys) { sheet = null; host.innerHTML = ''; return; }
@@ -744,6 +759,13 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-box]'))) { current = el.dataset.box; try { localStorage.setItem('or.box', current); } catch {} return render(); }
   if ((el = btn('[data-tab]'))) { if (editing) { commitEdits(); editing = false; } tab = el.dataset.tab; try { localStorage.setItem('or.tab', tab); } catch {} return render(); }
   if (btn('#editBtn')) { if (editing) commitEdits(); editing = !editing; return render(); }
+  if (btn('#importBtn')) { commitEdits(); sheet = 'import'; return render(); }
+  if (btn('#importCancel')) { sheet = null; return render(); }
+  if (btn('#importGo')) { const list = parseLineup($('#lineupText').value); if (!list.length) return toast('Nothing I could read. One channel per line, with its number.'); const rep = $('#lineupReplace').checked; sheet = null; return applyLineup(list, rep).then(render); }
+  if ((el = btn('[data-lineup]'))) {
+    const rep = $('#lineupReplace').checked;
+    return fetch(`lineups/${el.dataset.lineup}`).then((r) => r.json()).then((j) => { sheet = null; return applyLineup(j.channels || [], rep).then(render); }).catch((err) => toast(`Could not load that lineup: ${err.message}`));
+  }
   if ((el = btn('[data-fav]'))) { e.stopPropagation(); const c = state.channels[+el.dataset.fav]; c.fav = !c.fav; if (editing) return render(); return saveConfig({ channels: state.channels }); }
   if ((el = btn('[data-del]'))) { commitEdits(); state.channels.splice(+el.dataset.del, 1); return render(); }
   if (btn('#addCh')) { commitEdits(); state.channels.push({ name: '', number: null, groups: [tab === 'all' || tab === 'fav' ? 'entertainment' : tab], fav: tab === 'fav' }); return render(); }
@@ -844,6 +866,34 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'pairCode') $('#pairSend').click(); if (e.key === 'Enter' && e.target.id === 'idCode') $('#idCodeSend').click(); });
 document.addEventListener('input', (e) => { if (e.target.id === 'idCode') idCodeDraft = e.target.value; });
+const GROUP_WORDS = [[/news|cnn|msnbc|cnbc|bloomberg|fox news|newsmax|weather|c-span|cspan|bbc/i, 'news'], [/espn|sports|golf|nfl|nba|mlb|nhl|yes|sny|msg|tennis|fs1|fs2|nbcsn|cbs sports|bally|tnt sports|motortrend/i, 'sports'],
+  [/disney|nick|cartoon|boomerang|pbs kids|universal kids|baby|sprout|discovery family/i, 'kids'], [/hbo|max|showtime|starz|cinemax|tcm|movie|flix|epix|mgm|sundance|ifc|amc|fxm|hallmark movies/i, 'movies']];
+function groupsFor(name) { const g = GROUP_WORDS.filter(([rx]) => rx.test(name)).map(([, grp]) => grp); return g.length ? g : ['entertainment']; }
+function parseLineup(text) {
+  const out = [];
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.replace(/\s+/g, ' ').trim(); if (!line) continue;
+    let m = line.match(/^(\d{1,4})\s*[-–:.)]?\s+(.+)$/) || line.match(/^(.+?)\s*[-–:.]?\s+(\d{1,4})$/);
+    if (!m) continue;
+    const num = Number(/^\d/.test(m[1]) ? m[1] : m[2]); const name = (/^\d/.test(m[1]) ? m[2] : m[1]).replace(/\s*\((HD|SD)\)\s*$/i, '').replace(/\s+HD$/i, '').trim();
+    if (!name || !num) continue;
+    out.push({ name, number: num });
+  }
+  return out;
+}
+function applyLineup(list, replace) {
+  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const existing = replace ? [] : state.channels.slice();
+  const favs = new Set(state.channels.filter((c) => c.fav).map((c) => norm(c.name)));
+  let filled = 0, added = 0;
+  for (const c of list) {
+    const hit = existing.find((e) => norm(e.name) === norm(c.name));
+    if (hit) { hit.number = c.number; filled++; }
+    else { existing.push({ name: c.name, number: c.number, groups: groupsFor(c.name), fav: favs.has(norm(c.name)) }); added++; }
+  }
+  state.channels = existing;
+  return saveConfig({ channels: state.channels }).then(() => toast(`${filled} numbers filled in, ${added} channels added`, 4000));
+}
 function commitEdits() {
   document.querySelectorAll('.tile.editing').forEach((tile) => {
     const c = state.channels[+tile.dataset.i]; if (!c) return;
