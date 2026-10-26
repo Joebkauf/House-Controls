@@ -77,12 +77,19 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tabs .sp { flex: 1; }
 .tab.edit { color: var(--accent); }
 .tab.edit.on { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
-.grid { overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 8px; min-height: 0; }
-.tile { position: relative; background: var(--tile); border-radius: 16px; min-height: 104px; padding: 14px 14px 12px; display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: left; box-shadow: var(--shadow); border: 2px solid transparent; transition: transform .08s ease, background .08s ease; }
+.grid { overflow-y: auto; display: grid; grid-auto-rows: max-content; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 8px; min-height: 0; }
+.tile { position: relative; background: var(--tile); border-radius: 16px; min-height: 116px; padding: 14px 14px 12px; display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: left; box-shadow: var(--shadow); border: 2px solid transparent; transition: transform .08s ease, background .08s ease; }
 .tile:active { transform: scale(.97); background: var(--tile-hi); }
 .tile.live { border-color: var(--accent); }
 .tile .name { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2.4vw, 30px); line-height: .95; letter-spacing: .01em; text-wrap: balance; align-self: start; padding-right: 26px; }
-.tile .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tile .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tile.branded { display: flex; flex-direction: column; gap: 6px; background: linear-gradient(140deg, color-mix(in srgb, var(--bc) 30%, var(--tile)) 0%, var(--tile) 75%); box-shadow: inset 0 3px 0 var(--bc), var(--shadow); }
+.tile .desc { font-size: 11.5px; line-height: 1.3; color: var(--muted); padding-right: 26px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile.branded > * { flex-shrink: 0; }
+.tile.branded .meta { margin-top: auto; }
+.tile .chip { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tile .logo { width: 22px; height: 22px; border-radius: 5px; flex: none; }
+.tile.apptile .logo { width: 26px; height: 26px; }
 .tile .num { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tile .num.none { color: var(--warn); font-family: var(--body); font-size: 12px; font-weight: 600; }
 .tile .onnow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
@@ -267,6 +274,56 @@ const APP_NAMES = [
   [/paramount/i, 'Paramount+'], [/apple/i, 'Apple TV'], [/spotify/i, 'Spotify'], [/tvlauncher|launcher/i, 'Home screen'],
 ];
 const appName = (pkg) => { if (!pkg) return ''; const m = APP_NAMES.find(([rx]) => rx.test(pkg)); return m ? m[1] : pkg.split('.').pop(); };
+
+// Brand looks for the tiles: [accent color, the network's own site (its favicon is the logo), one line about it].
+// Keyed by the tile's name, lowercased. A name not in here renders the plain tile, so hand-added channels still work.
+const BRANDS = {
+  'abc':             ['#2175d9', 'abc.com',            'Network TV · local news'],
+  'cbs':             ['#0057b8', 'cbs.com',            'Network TV · NFL, 60 Min.'],
+  'nbc':             ['#6e55dc', 'nbc.com',            'Network TV · Today, SNL'],
+  'fox':             ['#3056d3', 'fox.com',            'Network TV · NFL, primetime'],
+  'news 12':         ['#e31837', 'news12.com',         'Local NJ news & weather'],
+  'cnn':             ['#cc0000', 'cnn.com',            '24-hour news'],
+  'fox news':        ['#0a3e86', 'foxnews.com',        '24-hour news & opinion'],
+  'msnbc':           ['#2a5db0', 'msnbc.com',          'News & political talk'],
+  'cnbc':            ['#005594', 'cnbc.com',           'Markets & business news'],
+  'bloomberg':       ['#2800d7', 'bloomberg.com',      'Business & market news'],
+  'espn':            ['#d20a0a', 'espn.com',           'Live sports & SportsCenter'],
+  'espn2':           ['#d20a0a', 'espn.com',           'More live sports'],
+  'yes':             ['#003087', 'yesnetwork.com',     'Yankees & NY sports'],
+  'sny':             ['#ff5910', 'sny.tv',             'Mets, Jets & NY sports'],
+  'msg':             ['#ed1b2f', 'msgnetworks.com',    'Knicks & Rangers'],
+  'golf':            ['#2e7d32', 'golfchannel.com',    'PGA Tour & golf coverage'],
+  'a&e':             ['#3b7ea1', 'aetv.com',           'Reality & true crime'],
+  'amc':             ['#c89a3f', 'amc.com',            'Dramas & movies'],
+  'hgtv':            ['#5f9e3e', 'hgtv.com',           'Home & renovation'],
+  'food network':    ['#ee3124', 'foodnetwork.com',    'Cooking & competitions'],
+  'discovery':       ['#0077c8', 'discovery.com',      'Science & adventure'],
+  'history':         ['#a67c00', 'history.com',        'History & documentaries'],
+  'tbs':             ['#0b78cf', 'tbs.com',            'Comedy & sports'],
+  'tnt':             ['#d8362a', 'tntdrama.com',       'Dramas, movies & NBA'],
+  'comedy central':  ['#e8c400', 'cc.com',             'Comedy & South Park'],
+  'hbo':             ['#5822b4', 'hbo.com',            'Premium series & movies'],
+  'tcm':             ['#8b0000', 'tcm.com',            'Classic movies, uncut'],
+  'cartoon network': ['#00a0e4', 'cartoonnetwork.com', 'Cartoons & Adult Swim'],
+  'disney':          ['#113ccf', 'disneynow.com',      'Kids shows & movies'],
+  'nickelodeon':     ['#ff6700', 'nick.com',           'Kids shows & cartoons'],
+  'netflix':         ['#e50914', 'netflix.com',        'Movies & series'],
+  'prime video':     ['#00a8e1', 'primevideo.com',     'Included with Prime'],
+  'youtube':         ['#ff0000', 'youtube.com',        'Videos & live channels'],
+  'youtube tv':      ['#ff0000', 'tv.youtube.com',     'Live TV over the internet'],
+  'disney+':         ['#113ccf', 'disneyplus.com',     'Disney, Pixar & Marvel'],
+  'hulu':            ['#1ce783', 'hulu.com',           'Next-day TV & originals'],
+  'max':             ['#002be7', 'max.com',            'HBO & Warner Bros.'],
+  'apple tv':        ['#6e6e73', 'tv.apple.com',       'Apple originals'],
+  'peacock':         ['#f9a51a', 'peacocktv.com',      'NBC shows & live sports'],
+  'paramount+':      ['#0064ff', 'paramountplus.com',  'CBS shows & movies'],
+  'spotify':         ['#1db954', 'spotify.com',        'Music & podcasts'],
+  'optimum tv':      ['#ff6319', 'optimum.net',        'Live cable TV'],
+  'home screen':     ['#9aa6b8', '',                   'Back to the box’s menu'],
+};
+const brand = (name) => BRANDS[String(name || '').toLowerCase().trim()] || null;
+const logoImg = (bd) => bd && bd[1] ? `<img class="logo" alt="" loading="lazy" onerror="this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64">` : '';
 
 // ---------- state + transport ---------------------------------------------
 let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none' };
@@ -458,13 +515,15 @@ function render() {
     $('#grid').innerHTML = (state.apps || []).map((a) => {
       const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
       const on = b && b.app && a.pkg && b.app === a.pkg;
-      return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''}" data-app="${esc(a.id)}" type="button">
+      const bd = brand(a.name);
+      return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-app="${esc(a.id)}" type="button">
         <span class="name">${esc(a.name)}</span>
-        <span class="meta"><span class="num">${na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (on ? '' : (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
+        ${bd && bd[2] ? `<span class="desc">${esc(bd[2])}</span>` : ''}
+        <span class="meta"><span class="chip">${logoImg(bd)}<span class="num">${na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (on ? '' : (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span></span>${on ? '<span class="onnow">On now</span>' : ''}</span>
       </button>`;
     }).join('') || '<p class="empty">No apps set up.</p>';
   } else
-  $('#grid').innerHTML = (list.map((c) => editing ? `
+  $('#grid').innerHTML = (list.map((c) => { const bd = brand(c.name); return editing ? `
     <div class="tile editing" data-i="${c.i}">
       <div class="row">
         <input id="nm${c.i}" value="${esc(c.name)}" placeholder="Name" aria-label="Channel name" data-field="name">
@@ -473,12 +532,13 @@ function render() {
       <div class="meta"><button class="del" data-del="${c.i}" type="button">Remove</button>
         <button class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</button></div>
     </div>` : `
-    <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''}" data-tune="${esc(c.number ?? '')}" type="button">
+    <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-tune="${esc(c.number ?? '')}" type="button">
       <span class="name">${esc(c.name)}</span>
-      <span class="meta">${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No number yet</span>'}
+      ${bd && bd[2] ? `<span class="desc">${esc(bd[2])}</span>` : ''}
+      <span class="meta"><span class="chip">${logoImg(bd)}${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No number yet</span>'}</span>
         ${live && String(c.number) === String(live) ? '<span class="onnow">On now</span>' : ''}</span>
       <span class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</span>
-    </button>`).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
+    </button>`; }).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
     + (editing ? `<button class="tile add" id="addCh" type="button">+ Add channel</button>` : '');
   // volume
   const v = b && b.volume;
