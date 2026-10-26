@@ -17,6 +17,7 @@ const express = require('express');
 const TV = require('./tv');
 const CABLE = require('./cable');
 const GUIDE = require('./guide');
+const TUYA_MOD = require('./tuya');
 // The night timer's window, 10:00 PM – 5:30 AM house time (used at boot by publicState, so it lives up here).
 const SLEEP_TZ = process.env.GUIDE_TZ || 'America/New_York';
 const sleepFmt = new Intl.DateTimeFormat('en-US', { timeZone: SLEEP_TZ, hour: 'numeric', minute: 'numeric', hour12: false });
@@ -99,6 +100,8 @@ let VERSION = 'dev';
 try { VERSION = require('child_process').execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname, timeout: 5000 }).toString().trim(); } catch {}
 function saveConfig(cfg) { fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n'); }
 let config = loadConfig();
+const demoPlugs = [{ id: 'p1', name: 'Nightstand Fan', room: 'Master', on: true, online: true, category: 'cz' }, { id: 'p2', name: 'Gym Lights', room: 'Gym', on: false, online: true, category: 'kg' }, { id: 'p3', name: 'Gym TV', room: 'Cable Boxes', on: true, online: true, category: 'cz' }, { id: 'p4', name: 'Living Room TV & Cable', room: 'Cable Boxes', on: true, online: true, category: 'cz' }, { id: 'p5', name: 'Front Door Lights', room: 'Outside', on: true, online: true, category: 'kg' }];
+const TUYA = TUYA_MOD.create({ dataDir: DATA_DIR, log, onChange: () => broadcast(), baseUrlOverride: process.env.TUYA_URL });
 
 // ---------- rooms ----------------------------------------------------------
 // room = { cfg, box: <androidtv link | cable driver | null>, tv: <tv driver | null>, sonyLink: <androidtv link | null>, focus }
@@ -141,7 +144,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, sleepAllowed: sleepAllowed(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
+  return { demo: DEMO, sleepAllowed: sleepAllowed(), plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -427,6 +430,15 @@ app.get('/api/state', (_req, res) => res.json(publicState()));
 app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(GUIDE.schedule(config.channels, from, from + hours * 3600000)); });
 app.get('/api/find-show', (req, res) => res.json(GUIDE.findShow(config.channels, String(req.query.q || ''))));
 app.get('/api/log', (_req, res) => res.json({ lines: LOG_RING.slice(-120), pushesThisMinute: broadcastCount, rooms: [...rooms.values()].map((r) => ({ id: r.cfg.id, box: r.box ? r.box.status : null, boxErr: r.box && r.box.lastError || null, tv: r.tv ? r.tv.status : null, link: r.sonyLink ? r.sonyLink.status : null, linkErr: r.sonyLink && r.sonyLink.lastError || null })) }));
+// ---------- smart plugs, switches and lights (Tuya Smart / Smart Life) ----------
+app.get('/api/plugs', (_req, res) => res.json({ plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status() }));
+app.post('/api/plugs/:id', wrap(async (req) => {
+  if (DEMO) { const d = demoPlugs.find((x) => x.id === req.params.id); if (!d) throw err('unknown plug', 404); d.on = !!req.body.on; broadcast(); return { ok: true, plug: d }; }
+  const d = await TUYA.set(req.params.id, !!req.body.on); return { ok: true, plug: d };
+}));
+app.post('/api/plugs/refresh', wrap(async () => { await TUYA.refresh(); return TUYA.status(); }));
+app.get('/api/tuya', (_req, res) => res.json({ ...TUYA.status(), regions: TUYA.REGIONS }));
+app.post('/api/tuya', wrap(async (req) => { await TUYA.save(req.body || {}); const st = TUYA.status(); if (st.error) throw err(`Saved, but Tuya answered: ${st.error}`, 502); return { ok: true, ...st }; }));
 app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
 app.get('/api/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -684,5 +696,6 @@ app.post('/api/config', wrap(async (req) => {
 let lastWhatsOn = '';
 const pushWhatsOn = () => { const now = JSON.stringify(GUIDE.nowOn(config.channels)); if (now !== lastWhatsOn) { lastWhatsOn = now; broadcast(); } };
 GUIDE.start(log, pushWhatsOn);
+if (!DEMO) TUYA.start();
 setInterval(pushWhatsOn, 60000).unref();
 app.listen(PORT, () => log(`Optimum Remote bridge on http://0.0.0.0:${PORT}${DEMO ? '  (DEMO mode)' : ''}`));
