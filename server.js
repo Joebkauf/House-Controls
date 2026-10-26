@@ -537,6 +537,20 @@ async function startIdentify() {
 }
 app.post('/api/identify', wrap(() => startIdentify()));
 app.post('/api/identify/stop', wrap(async () => { stopIdentify(); return { ok: true }; }));
+// "Show me": a paired box jumps to its Home screen, so the person can see which TV it is wired to.
+app.post('/api/identify/poke', wrap(async (req) => {
+  const host = String(req.body.host || ''); const L = identify.boxes.get(host);
+  if (!L) throw err('that device is not in the list any more; tap "Show again"', 404);
+  if (DEMO) return { ok: true, message: `Box ${host} jumped to its Home screen (demo)` };
+  const tmp = androidLink(`poke-${host}`, host, `box ${host}`);
+  tmp.connect();
+  const until = Date.now() + 8000;
+  while (Date.now() < until && tmp.status !== 'ready') { if (tmp.status === 'needs-pairing' || tmp.status === 'offline') break; await sleep(200); }
+  if (tmp.status !== 'ready') { tmp.close(); throw err(tmp.status === 'needs-pairing' ? 'that box forgot the pairing; type its code again' : 'that box is not answering (is it on?)', 502); }
+  try { tmp.sendKey('HOME'); } catch {}
+  setTimeout(() => tmp.close(), 1500);
+  return { ok: true, message: `Box ${host} just went to its Home screen. Which TV did it?` };
+}));
 // A device already paired (listed "paired ✓") goes straight into the room being built.
 app.post('/api/identify/pick', wrap(async (req) => {
   const host = String(req.body.host || ''); const L = identify.boxes.get(host);
