@@ -282,8 +282,17 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,.45); }
   .pad .closePad { display: grid; grid-column: 1 / -1; min-height: 44px; }
   .pad .power, .pad .vol, .pad .row3, .pad .stack { grid-column: 1 / -1; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-  .tile .name { font-size: 20px; }
+  /* four tiles across on a phone, so a whole sort fits on one screen */
+  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+  .grid:has(.stat) { grid-template-columns: 1fr; }
+  .tile { padding: 7px 7px 6px; min-height: 64px; border-radius: 11px; gap: 4px; }
+  .tile .top { gap: 4px; padding-right: 16px; }
+  .tile .name, .tile .name.long { font-size: 13px; letter-spacing: 0; }
+  .tile .logo { width: 15px; height: 15px; border-radius: 4px; } .tile .logo.mono { font-size: 7px; }
+  .tile .fav { top: 0; right: 0; width: 24px; height: 24px; line-height: 24px; font-size: 13px; }
+  .tile .show { font-size: 10px; line-height: 1.25; } .tile .show .chn { font-size: 11px; margin-right: 4px; } .tile .show .lb { display: none; }
+  .tile .meta { gap: 4px; }
+  .tile.apptile { min-height: 56px; } .tile.apptile .name { font-size: 13px; } .tile.apptile .logo { width: 18px; height: 18px; }
   .now { width: 100%; text-align: left; }
   /* the rail sits above the wall on a phone: its height must never change, or the wall jumps */
   #boxes { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
