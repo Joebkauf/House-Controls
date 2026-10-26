@@ -835,7 +835,8 @@ function favHeader() {
   const p = personRec(); if (!p) return chips;
   const tiles = (p.shows || []).map((n) => {
     const info = showInfo[n] && showInfo[n].data; const now = info && info.now[0], next = info && info.next[0];
-    const line = !info ? 'Looking…' : now ? `<span class="lb">On now</span>${esc(now.channel)} · CH ${esc(now.number)}` : next ? `<span class="lb">Next</span>${esc(fmtWhen(next.start))} · ${esc(next.channel)} CH ${esc(next.number)}` : 'Not on your channels today';
+    const as = (h) => (h && norm0(h.title) !== norm0(n) ? ` · as “${esc(h.title)}”` : '');
+    const line = !info ? 'Looking…' : now ? `<span class="lb">On now</span>${esc(now.channel)} · CH ${esc(now.number)}${as(now)}` : next ? `<span class="lb">Next</span>${esc(fmtWhen(next.start))} · ${esc(next.channel)} CH ${esc(next.number)}${as(next)}` : 'Not on your channels today';
     return `<button class="tile branded showtile ${now ? 'live' : ''}" style="--bc:${autoColor(n)}" data-show="${esc(n)}" type="button">
       <span class="top">${mono(n)}<span class="name">${esc(n)}</span></span>
       <span class="meta"><span class="show ${info && !now && !next ? 'tag' : ''}">${line}</span></span>

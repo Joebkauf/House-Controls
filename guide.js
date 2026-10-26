@@ -113,12 +113,18 @@ function schedule(channels, from, to) {
 function findShow(channels, q, at = Date.now()) {
   const want = norm(q); if (!want) return { now: [], next: [] };
   const byNet = netMap(channels);
-  const hits = [];
+  // Tiers: the exact title ("Friends" is Friends, not Fox & Friends) → a title that starts with it
+  // ("Law & Order" finds Law & Order: SVU) → a title containing it, but only for a multi-word name.
+  const oneWord = !/\s/.test(String(q).trim());
+  const tiers = [[], [], []];
   for (const d of state.days.values()) for (const r of d.rows) {
-    const t = norm(r.title); if (!(t === want || t.includes(want) || (want.length > 5 && want.includes(t) && t.length > 3))) continue;
+    const t = norm(r.title);
+    const tier = t === want ? 0 : t.startsWith(want) ? 1 : (!oneWord && t.includes(want)) ? 2 : -1;
+    if (tier < 0) continue;
     const c = byNet.get(r.netKey); if (!c) continue;
-    hits.push({ title: r.title, channel: c.name, number: c.number, net: r.net, start: r.start, end: r.end });
+    tiers[tier].push({ title: r.title, channel: c.name, number: c.number, net: r.net, start: r.start, end: r.end });
   }
+  const hits = tiers.find((list) => list.length) || [];
   hits.sort((a, b) => a.start - b.start);
   return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, 6) };
 }
