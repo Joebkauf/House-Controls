@@ -68,7 +68,8 @@ function mergeLineup(cfg) {
   let changed = 0, added = 0;
   for (const c of lineup.channels || []) {
     if (!c.name) continue;
-    const hit = cfg.channels.find((e) => norm(e.name) === norm(c.name));
+    let hit = cfg.channels.find((e) => norm(e.name) === norm(c.name));
+    if (!hit && Array.isArray(c.was)) { hit = cfg.channels.find((e) => c.was.some((w) => norm(w) === norm(e.name))); if (hit) { hit.name = c.name; changed++; } }
     if (hit) {
       if ((hit.number == null || hit.number === '') && c.number) { hit.number = c.number; changed++; }
       if (c.guide && !hit.guide) { hit.guide = c.guide; changed++; }

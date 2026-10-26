@@ -84,12 +84,15 @@
    ]
   },
   {
-   "name": "PBS Thirteen",
+   "name": "Thirteen",
    "number": 13,
    "groups": [
     "kids"
    ],
-   "guide": "PBS"
+   "guide": "PBS",
+   "was": [
+    "PBS Thirteen"
+   ]
   },
   {
    "name": "ShopHQ",
@@ -257,10 +260,13 @@
    ]
   },
   {
-   "name": "USA Network",
+   "name": "USA",
    "number": 38,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "USA Network"
    ]
   },
   {
@@ -278,10 +284,13 @@
    ]
   },
   {
-   "name": "Paramount Network",
+   "name": "Paramount",
    "number": 41,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Paramount Network"
    ]
   },
   {
@@ -449,10 +458,13 @@
    ]
   },
   {
-   "name": "MSG Plus",
+   "name": "MSG+",
    "number": 72,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "MSG Plus"
    ]
   },
   {
@@ -498,10 +510,13 @@
    ]
   },
   {
-   "name": "Travel Channel",
+   "name": "Travel",
    "number": 96,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Travel Channel"
    ]
   },
   {
@@ -557,10 +572,13 @@
    "guide": "Fox Business Network"
   },
   {
-   "name": "LAFF TV",
+   "name": "Laff",
    "number": 108,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "LAFF TV"
    ]
   },
   {
@@ -592,10 +610,13 @@
    ]
   },
   {
-   "name": "Movies! Network",
+   "name": "Movies!",
    "number": 113,
    "groups": [
     "movies"
+   ],
+   "was": [
+    "Movies! Network"
    ]
   },
   {
@@ -613,17 +634,23 @@
    ]
   },
   {
-   "name": "Discovery Family Channel",
+   "name": "Discovery Family",
    "number": 120,
    "groups": [
     "kids"
+   ],
+   "was": [
+    "Discovery Family Channel"
    ]
   },
   {
-   "name": "Nicktoons TV",
+   "name": "Nicktoons",
    "number": 122,
    "groups": [
     "kids"
+   ],
+   "was": [
+    "Nicktoons TV"
    ]
   },
   {
@@ -634,10 +661,13 @@
    ]
   },
   {
-   "name": "Teen Nick",
+   "name": "TeenNick",
    "number": 124,
    "groups": [
     "kids"
+   ],
+   "was": [
+    "Teen Nick"
    ]
   },
   {
@@ -683,10 +713,13 @@
    ]
   },
   {
-   "name": "Trinity Broadcasting Network",
+   "name": "TBN",
    "number": 134,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Trinity Broadcasting Network"
    ]
   },
   {
@@ -711,10 +744,13 @@
    ]
   },
   {
-   "name": "Jewish Broadcasting Service",
+   "name": "JBS",
    "number": 138,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Jewish Broadcasting Service"
    ]
   },
   {
@@ -776,39 +812,55 @@
    "guide": "National Geographic"
   },
   {
-   "name": "Smithsonian Channel",
+   "name": "Smithsonian",
    "number": 163,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Smithsonian Channel"
    ]
   },
   {
-   "name": "Cooking Channel",
+   "name": "Cooking",
    "number": 166,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Cooking Channel"
    ]
   },
   {
-   "name": "Magnolia Network",
+   "name": "Magnolia",
    "number": 167,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Magnolia Network"
    ]
   },
   {
-   "name": "Science Channel",
+   "name": "Science",
    "number": 170,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Science Channel"
    ]
   },
   {
-   "name": "Investigation Discovery",
+   "name": "ID",
    "number": 171,
    "groups": [
     "entertainment"
-   ]
+   ],
+   "was": [
+    "Investigation Discovery"
+   ],
+   "guide": "Investigation Discovery"
   },
   {
    "name": "Destination America",
@@ -818,10 +870,13 @@
    ]
   },
   {
-   "name": "American Heroes Channel",
+   "name": "AHC",
    "number": 173,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "American Heroes Channel"
    ]
   },
   {
@@ -840,10 +895,13 @@
    ]
   },
   {
-   "name": "ReelzChannel",
+   "name": "Reelz",
    "number": 177,
    "groups": [
     "movies"
+   ],
+   "was": [
+    "ReelzChannel"
    ]
   },
   {
@@ -854,10 +912,13 @@
    ]
   },
   {
-   "name": "LOGO TV",
+   "name": "Logo",
    "number": 179,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "LOGO TV"
    ]
   },
   {
@@ -868,10 +929,13 @@
    ]
   },
   {
-   "name": "Jewelry Television",
+   "name": "JTV",
    "number": 182,
    "groups": [
     "entertainment"
+   ],
+   "was": [
+    "Jewelry Television"
    ]
   },
   {
@@ -931,10 +995,13 @@
    ]
   },
   {
-   "name": "Hallmark Channel",
+   "name": "Hallmark",
    "number": 191,
    "groups": [
     "movies"
+   ],
+   "was": [
+    "Hallmark Channel"
    ]
   },
   {
@@ -983,10 +1050,13 @@
    "guide": "FOX Sports 2"
   },
   {
-   "name": "CBS Sports Network",
+   "name": "CBS Sports",
    "number": 215,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "CBS Sports Network"
    ]
   },
   {
@@ -1070,10 +1140,13 @@
    "guide": "TUDN"
   },
   {
-   "name": "beIN Sports Español",
+   "name": "beIN Español",
    "number": 230,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "beIN Sports Español"
    ]
   },
   {
@@ -1105,24 +1178,33 @@
    ]
   },
   {
-   "name": "Outdoor Channel",
+   "name": "Outdoor",
    "number": 240,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "Outdoor Channel"
    ]
   },
   {
-   "name": "World Fishing Network",
+   "name": "WFN",
    "number": 241,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "World Fishing Network"
    ]
   },
   {
-   "name": "Sportsman Channel",
+   "name": "Sportsman",
    "number": 242,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "Sportsman Channel"
    ]
   },
   {
@@ -1140,10 +1222,13 @@
    ]
   },
   {
-   "name": "TVG Network",
+   "name": "TVG",
    "number": 245,
    "groups": [
     "sports"
+   ],
+   "was": [
+    "TVG Network"
    ]
   },
   {

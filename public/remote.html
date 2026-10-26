@@ -88,11 +88,16 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile .top .logo { flex: none; }
 .tile .show { font-size: 13.5px; line-height: 1.3; color: var(--fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; }
 .tile .show.tag { color: var(--muted); font-size: 12px; }
+.tile .show .chn { font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--fg); font-variant-numeric: tabular-nums; margin-right: 8px; white-space: nowrap; }
+.tile .show .chn.none { color: var(--warn); font-family: var(--body); font-size: 11px; }
 .tile .show .lb { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 .tile .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .tile.branded { background: linear-gradient(140deg, color-mix(in srgb, var(--bc) 30%, var(--tile)) 0%, var(--tile) 75%); box-shadow: inset 0 3px 0 var(--bc), var(--shadow); }
 .tile .chip { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .tile .logo { width: 22px; height: 22px; border-radius: 5px; flex: none; }
+.tile .logowrap { display: inline-flex; flex: none; }
+.tile .logo.mono { display: inline-grid; place-items: center; background: var(--bc, var(--muted)); color: #fff; font-family: var(--display); font-weight: 700; font-size: 10px; letter-spacing: .02em; }
+.tile .name.long { font-size: clamp(15px, 1.35vw, 18px); }
 .tile.apptile .logo { width: 26px; height: 26px; }
 .tile .num { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tile .num.none { color: var(--warn); font-family: var(--body); font-size: 11px; font-weight: 600; }
@@ -149,7 +154,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
   .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
   .tile { padding: 10px 11px 10px; min-height: 80px; }
   .tile .top { gap: 6px; padding-right: 24px; }
-  .tile .top { align-items: flex-start; } .tile .name { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } .tile .num { font-size: 13px; margin-top: 2px; } .tile .logo { width: 18px; height: 18px; }
+  .tile .name { font-size: 16px; } .tile .show .chn { font-size: 13px; } .tile .logo { width: 18px; height: 18px; }
   .tile .fav { top: 4px; right: 4px; width: 30px; height: 30px; line-height: 30px; font-size: 16px; }
   .tile .show { font-size: 12.5px; } .sheet > div { zoom: 1; } }
 .idpanel { background: var(--bg); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
@@ -341,11 +346,73 @@ const BRANDS = {
   'spotify':         ['#1db954', 'spotify.com',        'Music & podcasts'],
   'optimum tv':      ['#ff6319', 'optimum.net',        'Live cable TV'],
   'home screen':     ['#9aa6b8', '',                   'Back to the box’s menu'],
+  // the rest of the Optimum wall
+  'ion': ['#5b2d8e', 'iontelevision.com', 'Local TV · Law & Order reruns'], 'univisión': ['#6e2a8a', 'univision.com', 'En español'], 'univision': ['#6e2a8a', 'univision.com', 'En español'],
+  'nj pbs': ['#1b5fa8', 'mynjpbs.org', 'New Jersey public TV'], 'my9': ['#1d4ed8', 'my9nj.com', 'Local TV'], 'wlny': ['#0057b8', 'cbsnews.com', 'Local TV · CBS New York'],
+  'cw': ['#00a86b', 'cwtv.com', 'Local TV · dramas & sports'], 'thirteen': ['#2a5db0', 'thirteen.org', 'Public TV'], 'pbs thirteen': ['#2a5db0', 'thirteen.org', 'Public TV'],
+  'shophq': ['#c62828', 'shophq.com', 'Shopping'], 'telemundo': ['#d31f2a', 'telemundo.com', 'En español'], 'unimás': ['#f26522', 'unimas.com', 'En español'], 'unimas': ['#f26522', 'unimas.com', 'En español'],
+  'hsn': ['#0b74c8', 'hsn.com', 'Shopping'], 'hsn2': ['#0b74c8', 'hsn.com', 'Shopping'], 'wrnn': ['#004b87', 'rnntv.com', 'Local news'], 'wmbc': ['#2b6cb0', 'wmbctv.com', 'Local & international'],
+  'pbs (wliw)': ['#2a5db0', 'wliw.org', 'Public TV · Long Island'], 'wliw': ['#2a5db0', 'wliw.org', 'Public TV'], 'nyc life': ['#ff6a13', 'nyc.gov', 'New York City programs'],
+  'tlc': ['#00a3e0', 'tlc.com', 'Reality & family'], 'tv land': ['#e1251b', 'tvland.com', 'Classic sitcoms'], 'usa': ['#0f3d91', 'usanetwork.com', 'Dramas, WWE & sports'], 'usa network': ['#0f3d91', 'usanetwork.com', 'Dramas, WWE & sports'],
+  'fx': ['#222222', 'fxnetworks.com', 'Dramas, comedy & movies'], 'fxx': ['#222222', 'fxnetworks.com', 'Comedy · The Simpsons'], 'fxm': ['#222222', 'fxnetworks.com', 'Movies'],
+  'paramount': ['#0064ff', 'paramountnetwork.com', 'Yellowstone & movies'], 'paramount network': ['#0064ff', 'paramountnetwork.com', 'Yellowstone & movies'],
+  'we tv': ['#ff2a7f', 'wetv.com', 'Reality & relationships'], 'bravo': ['#5e2d91', 'bravotv.com', 'Reality & Housewives'], 'lifetime': ['#e0004d', 'mylifetime.com', 'Movies & dramas'],
+  'syfy': ['#6a1b9a', 'syfy.com', 'Sci-fi & fantasy'], 'freeform': ['#ff6f00', 'freeform.com', 'Young adult shows & movies'], 'e!': ['#444444', 'eonline.com', 'Celebrity & reality'],
+  'vh1': ['#ff3300', 'vh1.com', 'Music & reality'], 'mtv': ['#ffcc00', 'mtv.com', 'Reality & music'], 'mtv2': ['#ffcc00', 'mtv.com', 'Music & comedy'], 'bet': ['#333333', 'bet.com', 'Black entertainment'],
+  'fuse': ['#ff3a00', 'fuse.tv', 'Music & culture'], 'animal planet': ['#0b8043', 'animalplanet.com', 'Animals & nature'], 'trutv': ['#ff6a00', 'trutv.com', 'Comedy · Impractical Jokers'],
+  'hln': ['#cc0000', 'cnn.com', 'True crime & news'], 'weather channel': ['#1e88e5', 'weather.com', 'Weather, 24 hours'], 'fs1': ['#003087', 'foxsports.com', 'Live sports'], 'fs2': ['#003087', 'foxsports.com', 'More live sports'],
+  'msg plus': ['#ed1b2f', 'msgnetworks.com', 'Devils, Islanders & more'], 'msg+': ['#ed1b2f', 'msgnetworks.com', 'Devils, Islanders & more'],
+  'c-span': ['#1f3a93', 'c-span.org', 'Congress & public affairs'], 'c-span 2': ['#1f3a93', 'c-span.org', 'The Senate & books'], 'c-span 3': ['#1f3a93', 'c-span.org', 'Hearings & history'],
+  'qvc': ['#5c2d91', 'qvc.com', 'Shopping'], 'qvc plus': ['#5c2d91', 'qvc.com', 'Shopping'], 'oxygen': ['#5c2e91', 'oxygen.com', 'True crime'], 'ifc': ['#333333', 'ifc.com', 'Indie films & comedy'],
+  'gsn': ['#0073cf', 'gameshownetwork.com', 'Game shows'], 'travel': ['#0096d6', 'travelchannel.com', 'Travel & the paranormal'], 'travel channel': ['#0096d6', 'travelchannel.com', 'Travel & the paranormal'],
+  'bbc america': ['#333333', 'bbcamerica.com', 'British dramas & nature'], 'euronews': ['#1b4b8f', 'euronews.com', 'European news'], 'bbc world news': ['#b80000', 'bbc.com', 'World news'], 'bbc news': ['#b80000', 'bbc.com', 'World news'],
+  'fox business': ['#0a3e86', 'foxbusiness.com', 'Business news'], 'laff tv': ['#ffb400', 'laff.com', 'Comedy reruns'], 'laff': ['#ffb400', 'laff.com', 'Comedy reruns'], 'cozi tv': ['#00a3e0', 'cozitv.com', 'Classic TV'],
+  'live well': ['#7cb342', 'livewellnetwork.com', 'Lifestyle'], 'this tv': ['#c62828', 'thistv.com', 'Movies'], 'decades': ['#546e7a', 'decades.com', 'Classic TV'], 'movies! network': ['#8d6e63', 'moviestvnetwork.com', 'Movies'], 'movies!': ['#8d6e63', 'moviestvnetwork.com', 'Movies'],
+  'antenna tv': ['#f57c00', 'antennatv.tv', 'Classic sitcoms'], 'discovery family': ['#ff8f00', 'discoveryfamily.com', 'Kids & family'], 'nicktoons': ['#ff6700', 'nick.com', 'Cartoons'], 'nicktoons tv': ['#ff6700', 'nick.com', 'Cartoons'],
+  'nick jr.': ['#1e88e5', 'nickjr.com', 'Preschool'], 'nick jr': ['#1e88e5', 'nickjr.com', 'Preschool'], 'teen nick': ['#ff6700', 'teennick.com', 'Teen shows'], 'teennick': ['#ff6700', 'teennick.com', 'Teen shows'],
+  'disney junior': ['#1e88e5', 'disneynow.com', 'Preschool'], 'disney xd': ['#0a84ff', 'disneynow.com', 'Kids & action'], 'boomerang': ['#1ca5e0', 'boomerang.com', 'Classic cartoons'],
+  'kids thirteen': ['#2a5db0', 'thirteen.org', 'PBS Kids'], 'pbs kids': ['#2a5db0', 'pbskids.org', 'PBS Kids'], 'wliw world': ['#2a5db0', 'wliw.org', 'Documentaries & news'], 'wliw create': ['#2a5db0', 'wliw.org', 'Cooking, travel & how-to'],
+  'tbn': ['#1565c0', 'tbn.org', 'Faith'], 'ewtn': ['#8d1b1b', 'ewtn.com', 'Catholic TV'], 'daystar': ['#1b5e20', 'daystar.com', 'Faith'], 'telecare': ['#0d47a1', 'catholicfaithnetwork.org', 'Catholic TV'], 'jbs': ['#1a3c8f', 'jbstv.org', 'Jewish TV'],
+  'motortrend': ['#d50000', 'motortrend.com', 'Cars'], 'crime & investigation': ['#b71c1c', 'crimeandinvestigation.com', 'True crime'], 'blazetv': ['#c62828', 'blazetv.com', 'Conservative talk'],
+  'nat geo wild': ['#e6b800', 'natgeotv.com', 'Wildlife'], 'nat geo': ['#e6b800', 'nationalgeographic.com', 'Exploration & science'], 'fyi': ['#00897b', 'fyi.tv', 'Lifestyle'], 'vice tv': ['#333333', 'vicetv.com', 'Documentaries'],
+  'smithsonian': ['#1565c0', 'smithsonianchannel.com', 'History & science'], 'cooking': ['#e65100', 'cookingchanneltv.com', 'Cooking'], 'magnolia': ['#5d4037', 'magnolia.com', 'Home & lifestyle'], 'science': ['#0277bd', 'sciencechannel.com', 'Science'],
+  'id': ['#b71c1c', 'investigationdiscovery.com', 'True crime'], 'investigation discovery': ['#b71c1c', 'investigationdiscovery.com', 'True crime'], 'destination america': ['#1565c0', 'destinationamerica.com', 'Americana & the paranormal'],
+  'ahc': ['#37474f', 'ahctv.com', 'Military history'], 'lifetime movies': ['#e0004d', 'mylifetime.com', 'Movies'], 'aspire': ['#6a1b9a', 'aspire.tv', 'Black culture'], 'reelz': ['#c62828', 'reelz.com', 'Celebrity & true stories'],
+  'tv one': ['#333333', 'tvone.tv', 'Black entertainment'], 'logo': ['#333333', 'logotv.com', 'Reruns & RuPaul'], 'logo tv': ['#333333', 'logotv.com', 'Reruns & RuPaul'], 'own': ['#7b1fa2', 'oprah.com', 'Oprah Winfrey Network'],
+  'jtv': ['#7b1fa2', 'jtv.com', 'Shopping'], 'great american family': ['#1b5e20', 'gactv.com', 'Family movies'], 'bet her': ['#ad1457', 'bet.com', 'Movies & shows'], 'mtv classic': ['#ffcc00', 'mtv.com', 'Classic MTV'],
+  'mtv hits': ['#ffcc00', 'mtv.com', 'Music videos'], 'vh1 soul': ['#ff3300', 'vh1.com', 'Soul & R&B'], 'cmt': ['#e65100', 'cmt.com', 'Country music & reality'], 'hallmark': ['#5e2d91', 'hallmarkchannel.com', 'Feel-good movies'],
+  'hallmark channel': ['#5e2d91', 'hallmarkchannel.com', 'Feel-good movies'], 'sundancetv': ['#333333', 'sundancetv.com', 'Indie films & dramas'], 'hallmark mystery': ['#5e2d91', 'hallmarkchannel.com', 'Mysteries'],
+  'universo': ['#d31f2a', 'telemundo.com', 'En español'], 'galavisión': ['#6e2a8a', 'univision.com', 'En español'], 'galavision': ['#6e2a8a', 'univision.com', 'En español'], 'vme': ['#0d47a1', 'vmetv.com', 'En español'],
+  'cbs sports': ['#0057b8', 'cbssports.com', 'College sports'], 'cbs sports network': ['#0057b8', 'cbssports.com', 'College sports'], 'espnews': ['#d20a0a', 'espn.com', 'Sports news'], 'espnu': ['#d20a0a', 'espn.com', 'College sports'],
+  'nfl network': ['#013369', 'nfl.com', 'Football, all week'], 'nfl redzone': ['#013369', 'nfl.com', 'Every Sunday touchdown'], 'nba tv': ['#1d428a', 'nba.com', 'Basketball'], 'mlb network': ['#002d72', 'mlb.com', 'Baseball'], 'nhl network': ['#333333', 'nhl.com', 'Hockey'],
+  'espn deportes': ['#d20a0a', 'espndeportes.com', 'Deportes en español'], 'fox deportes': ['#003087', 'foxdeportes.com', 'Deportes en español'], 'tudn': ['#00a3e0', 'tudn.com', 'Fútbol en español'],
+  'bein sports': ['#6a1b9a', 'beinsports.com', 'Soccer & more'], 'bein sports español': ['#6a1b9a', 'beinsports.com', 'Fútbol en español'], 'fox soccer plus': ['#003087', 'foxsports.com', 'Soccer & rugby'], 'gol tv': ['#1b5e20', 'goltv.tv', 'Soccer'],
+  'willow': ['#1b5e20', 'willow.tv', 'Cricket'], 'outdoor': ['#2e7d32', 'outdoorchannel.com', 'Hunting & fishing'], 'outdoor channel': ['#2e7d32', 'outdoorchannel.com', 'Hunting & fishing'], 'wfn': ['#0277bd', 'worldfishingnetwork.com', 'Fishing'],
+  'sportsman': ['#5d4037', 'thesportsmanchannel.com', 'Hunting & fishing'], 'mavtv': ['#d50000', 'mavtv.com', 'Racing'], 'fight network': ['#b71c1c', 'fightnetwork.com', 'MMA & boxing'], 'tvg': ['#1b5e20', 'tvg.com', 'Horse racing'], 'tvg network': ['#1b5e20', 'tvg.com', 'Horse racing'],
+  'btn': ['#0088ce', 'btn.com', 'Big Ten sports'], 'hbo2': ['#5822b4', 'hbo.com', 'More HBO'], 'hbo comedy': ['#5822b4', 'hbo.com', 'Comedy'], 'hbo zone': ['#5822b4', 'hbo.com', 'Action & thrillers'], 'hbo latino': ['#5822b4', 'hbo.com', 'HBO en español'],
+  'hbo west': ['#5822b4', 'hbo.com', 'HBO, 3 hours later'], 'hbo2 west': ['#5822b4', 'hbo.com', 'HBO2, 3 hours later'], 'hbo signature': ['#5822b4', 'hbo.com', 'Films & series'], 'hbo signature west': ['#5822b4', 'hbo.com', '3 hours later'],
+  'hbo family': ['#5822b4', 'hbo.com', 'Family movies'], 'hbo family west': ['#5822b4', 'hbo.com', '3 hours later'], 'showtime': ['#c8102e', 'sho.com', 'Premium series & movies'], 'showtime too': ['#c8102e', 'sho.com', 'More Showtime'],
+  'showtime beyond': ['#c8102e', 'sho.com', 'Sci-fi & fantasy'], 'showtime next': ['#c8102e', 'sho.com', 'Young adult'], 'showtime family zone': ['#c8102e', 'sho.com', 'Family'], 'showtime women': ['#c8102e', 'sho.com', 'Movies & series'],
+  'showtime west': ['#c8102e', 'sho.com', '3 hours later'], 'showtime too west': ['#c8102e', 'sho.com', '3 hours later'], 'showtime showcase west': ['#c8102e', 'sho.com', '3 hours later'], 'showtime showcase': ['#c8102e', 'sho.com', 'Movies'], 'showtime extreme': ['#c8102e', 'sho.com', 'Action'],
+  'starz': ['#333333', 'starz.com', 'Premium movies & series'], 'starz kids & family': ['#333333', 'starz.com', 'Family movies'], 'starz edge': ['#333333', 'starz.com', 'Movies'], 'starz in black': ['#333333', 'starz.com', 'Movies'],
+  'starz west': ['#333333', 'starz.com', '3 hours later'], 'starz comedy': ['#333333', 'starz.com', 'Comedies'], 'starz cinema': ['#333333', 'starz.com', 'Movies'], 'starz encore': ['#333333', 'starz.com', 'Movies'],
+  'starz encore suspense': ['#333333', 'starz.com', 'Thrillers'], 'starz encore westerns': ['#333333', 'starz.com', 'Westerns'], 'starz encore classic': ['#333333', 'starz.com', 'Classic movies'], 'starz encore black': ['#333333', 'starz.com', 'Movies'],
+  'starz encore family': ['#333333', 'starz.com', 'Family movies'], 'starz encore west': ['#333333', 'starz.com', '3 hours later'], 'starz encore action': ['#333333', 'starz.com', 'Action movies'],
+  'cinemax': ['#b8860b', 'cinemax.com', 'Movies'], 'moremax': ['#b8860b', 'cinemax.com', 'Movies'], 'thrillermax': ['#b8860b', 'cinemax.com', 'Thrillers'], 'moviemax': ['#b8860b', 'cinemax.com', 'Movies'], 'cinemáx (spanish)': ['#b8860b', 'cinemax.com', 'Cinemax en español'],
+  '5 starmax': ['#b8860b', 'cinemax.com', 'Movies'], 'outermax': ['#b8860b', 'cinemax.com', 'Sci-fi & horror'], 'cinemax west': ['#b8860b', 'cinemax.com', '3 hours later'], 'actionmax': ['#b8860b', 'cinemax.com', 'Action movies'],
+  'tmc': ['#c8102e', 'sho.com', 'The Movie Channel'], 'tmc west': ['#c8102e', 'sho.com', '3 hours later'], 'tmc xtra': ['#c8102e', 'sho.com', 'Movies'], 'tmc xtra west': ['#c8102e', 'sho.com', '3 hours later'], 'flix': ['#c8102e', 'sho.com', 'Movies'],
 };
-const brand = (name) => BRANDS[String(name || '').toLowerCase().trim()] || null;
+const AUTO_TAGS = [[/deportes|español|espanol|univisi|telemundo|unim|galavisi|universo|^vme$|tudn/i, 'En español'], [/^w[a-z]{3}$|^my9$|^ion$|^cw$|nyc life|^wlny|^wrnn|^wmbc/i, 'Local TV'],
+  [/hsn|qvc|shop|jtv|jewelry/i, 'Shopping'], [/tbn|ewtn|daystar|telecare|jbs|jewish|trinity|faith|religio/i, 'Faith'], [/pbs|thirteen|wliw|njtv/i, 'Public TV'], [/hbo|showtime|starz|cinemax|max$|tmc|flix|encore/i, 'Movies'],
+  [/west$/i, '3 hours later'], [/music|mtv|vh1|cmt|fuse/i, 'Music'], [/sport|espn|nfl|nba|mlb|nhl|golf|racing|fight|willow|bein|gol tv|soccer|btn/i, 'Sports'], [/news|c-span/i, 'News'], [/kids|nick|disney|cartoon|boomerang|jr/i, 'Kids']];
+const autoColor = (name) => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 48% 42%)`; };
+const autoTag = (name, groups) => { const t = AUTO_TAGS.find(([rx]) => rx.test(name || '')); return t ? t[1] : (groups && groups.length ? ({ news: 'News', sports: 'Sports', movies: 'Movies', kids: 'Kids', entertainment: 'Entertainment' })[groups[0]] || '' : ''); };
+const brand = (name, groups) => BRANDS[String(name || '').toLowerCase().trim()] || [autoColor(name), '', autoTag(name, groups)];
+const mono = (name) => { const w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/); const t = (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); return `<span class="logo mono">${esc(t)}</span>`; };
 const gkey = (s) => String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
 const whatsOn = (name) => (state.whatsOn || {})[gkey(name)] || '';
-const logoImg = (bd) => bd && bd[1] ? `<img class="logo" alt="" loading="lazy" onerror="this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64">` : '';
+// the badge shows at once; the network's own icon replaces it when it loads (at home it always does)
+const logoImg = (bd, name) => `<span class="logowrap">${mono(name)}${bd && bd[1] ? `<img class="logo" alt="" loading="lazy" onload="this.previousElementSibling.remove()" onerror="this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64">` : ''}</span>`;
 
 // ---------- state + transport ---------------------------------------------
 let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none', whatsOn: {} };
@@ -543,13 +610,13 @@ function render() {
       const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
       const on = b && b.app && a.pkg && b.app === a.pkg;
       const bd = brand(a.name);
-      return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-app="${esc(a.id)}" type="button">
-        <span class="top">${logoImg(bd)}<span class="name">${esc(a.name)}</span></span>
+      return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''} branded" style="--bc:${bd[0]}" data-app="${esc(a.id)}" type="button">
+        <span class="top">${logoImg(bd, a.name)}<span class="name">${esc(a.name)}</span></span>
         <span class="meta"><span class="show tag">${esc(na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (bd && bd[2]) || (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
       </button>`;
     }).join('') || '<p class="empty">No apps set up.</p>';
   } else
-  $('#grid').innerHTML = (list.map((c) => { const bd = brand(c.name); return editing ? `
+  $('#grid').innerHTML = (list.map((c) => { const bd = brand(c.name, c.groups); return editing ? `
     <div class="tile editing" data-i="${c.i}">
       <div class="row">
         <input id="nm${c.i}" value="${esc(c.name)}" placeholder="Name" aria-label="Channel name" data-field="name">
@@ -558,9 +625,9 @@ function render() {
       <div class="meta"><button class="del" data-del="${c.i}" type="button">Remove</button>
         <button class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</button></div>
     </div>` : `
-    <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-tune="${esc(c.number ?? '')}" type="button">
-      <span class="top">${logoImg(bd)}<span class="name">${esc(c.name)}</span>${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No #</span>'}</span>
-      <span class="meta">${(() => { const t = whatsOn(c.name); return t ? `<span class="show"><span class="lb">On</span>${esc(t)}</span>` : `<span class="show tag">${esc(bd && bd[2] || '')}</span>`; })()}
+    <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''} branded" style="--bc:${bd[0]}" data-tune="${esc(c.number ?? '')}" type="button">
+      <span class="top">${logoImg(bd, c.name)}<span class="name ${c.name.length > 14 ? 'long' : ''}">${esc(c.name)}</span></span>
+      <span class="meta">${(() => { const t = whatsOn(c.name); const chn = c.number ? `<span class="chn">CH ${esc(c.number)}</span>` : '<span class="chn none">No #</span>'; return t ? `<span class="show">${chn}<span class="lb">On</span>${esc(t)}</span>` : `<span class="show tag">${chn}${esc(bd[2] || '')}</span>`; })()}
         ${live && String(c.number) === String(live) ? '<span class="onnow">Watching</span>' : ''}</span>
       <span class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</span>
     </button>`; }).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
