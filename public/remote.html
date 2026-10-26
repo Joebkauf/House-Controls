@@ -716,6 +716,7 @@ function fillFromIdentify(r) {
     }
   }, 20);
 }
+const kmgConfirmLite = (msg) => Promise.resolve(typeof kmgConfirm === 'function' ? kmgConfirm(msg) : window.confirm(msg));
 function identifyPanel() {
   const id = state.identify;
   if (!id) return `<div class="idpanel">
@@ -729,14 +730,14 @@ function identifyPanel() {
   return `<div class="idpanel">
     <div class="big">${head}</div>
     ${got.length ? `<p>Filled in below${id.matched && id.matchedTv ? ': name the room and tap Add room.' : '.'}${id.matchedTv && !id.matched && id.active ? ' Switch the TV to the Stream box\'s input: the box puts up its own code. Type that too.' : ''}${id.matched && !id.matchedTv && id.active ? ' If this room\'s TV is a Sony, press Home on the TV: its own code is waiting. A Samsung: press Allow on the set and tap its address below.' : ''}</p>` : ''}
-    ${id.active ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : (id.boxes.some((b) => b.status !== 'ready') ? ' Waiting for the TVs and boxes to answer…' : ' Everything found is paired: name the room and tap Add room.')}</p>
+    ${id.active && !(id.matched && id.matchedTv) ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : (id.boxes.some((b) => b.status !== 'ready') ? ' Waiting for the TVs and boxes to answer…' : ' Everything found is paired: name the room and tap Add room.')}</p>
     <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>This is the one</button></div>` : ''}
     <div class="idlist">
       ${id.boxes.map((b) => { const used = (id.matched === b.host) || (id.matchedTv && id.matchedTv.host === b.host); const pick = b.status === 'ready' && !used; return `<${pick ? `button type="button" data-idpick="${esc(b.host)}"` : 'div'} class="row ${pick ? 'pick' : ''}"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${used ? 'this room ✓' : pick ? 'paired · tap to use here' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></${pick ? 'button' : 'div'}>`; }).join('')}
       ${id.tvs.map((t) => `<div class="row"><span>Samsung TV ${esc(t.host)}${t.room ? ` · already in ${esc(t.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${t.allowed ? 'ok' : ''}">${t.allowed ? 'allowed ✓' : t.status === 'needs-allow' ? 'press Allow on the TV' : esc(t.status)}</span><button class="btn" data-idtv="${esc(t.host)}" type="button">This room's TV</button></span></div>`).join('')}
       ${!id.boxes.length && !id.tvs.length ? '<div class="st">Nothing answered. Turn the TVs and boxes on and try again.</div>' : ''}
     </div>
-    <div class="row2"><button class="btn" id="identifyStop" type="button">Clear the TVs</button><button class="btn" id="identifyStart" type="button">Show again</button></div>
+    <div class="row2"><button class="btn" id="identifyStop" type="button">Start over</button><button class="btn" id="identifyStart" type="button">Show again</button></div>
   </div>`;
 }
 let sheetSig = '', sheetPending = false;
@@ -926,7 +927,7 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
   if ((el = btn('[data-nbbrand]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
   if (btn('#identifyStart')) { toast('Asking every TV and box… look at the screens', 4000); return api('/api/identify', {}).then(() => renderSheet(true)).catch((err) => toast(err.message)); }
-  if (btn('#identifyStop')) { return api('/api/identify/stop', {}).then(() => { if (state.identify) state.identify = null; renderSheet(); }).catch((err) => toast(err.message)); }
+  if (btn('#identifyStop')) { return kmgConfirmLite('Start over? This closes the codes on every TV and forgets the TV and box picked for this room.').then((ok) => { if (!ok) return; return api('/api/identify/stop', {}).then(() => { if (state.identify) state.identify = null; renderSheet(true); }); }).catch((err) => toast(err.message)); }
   if (btn('#idCodeSend')) {
     const code = ($('#idCode') || {}).value || ''; idCodeDraft = '';
     toast('Checking that code against every box…', 3000);
