@@ -117,6 +117,8 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
 .log { background: var(--bg); border-radius: 10px; padding: 10px; font: 11px/1.4 ui-monospace, Menlo, monospace; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.stack.dvr { display: grid; gap: 8px; }
+.k.rec { color: var(--bad); font-weight: 700; }
 .k.sleep { min-height: 48px; font-weight: 600; font-size: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--tile)); }
 .k.sleep.on { background: var(--accent); color: var(--accent-ink); }
 #sleepQuick { display: none; }
@@ -325,6 +327,24 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
       <button class="k" data-key="BACK" type="button">Back</button>
       <button class="k" data-key="HOME" type="button">Home</button>
       <button class="k" data-key="MEDIA_PLAY_PAUSE" type="button">Play ⏯</button>
+    </div>
+    <div class="stack dvr">
+      <span class="lbl">DVR</span>
+      <div class="row3">
+        <button class="k" data-key="DVR" type="button">Recordings</button>
+        <button class="k rec" data-key="MEDIA_RECORD" type="button">⏺ Record</button>
+        <button class="k" data-key="INFO" type="button">Info</button>
+      </div>
+      <div class="row3">
+        <button class="k" data-key="MEDIA_SKIP_BACKWARD" type="button">⏮ Skip</button>
+        <button class="k" data-key="MEDIA_PLAY_PAUSE" type="button">⏯</button>
+        <button class="k" data-key="MEDIA_SKIP_FORWARD" type="button">Skip ⏭</button>
+      </div>
+      <div class="row3">
+        <button class="k" data-key="MEDIA_REWIND" data-repeat="1" type="button">⏪</button>
+        <button class="k" data-key="MEDIA_STOP" type="button">⏹ Stop</button>
+        <button class="k" data-key="MEDIA_FAST_FORWARD" data-repeat="1" type="button">⏩</button>
+      </div>
     </div>
     <div class="stack">
       <span class="lbl">Navigate</span>
