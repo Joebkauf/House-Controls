@@ -1,0 +1,1508 @@
+{
+ "name": "Optimum — Bergen County, NJ",
+ "note": "Numerical lineup sheet (Bergen system). Park Ridge is on it. Check a few numbers after loading; the sheet is older than some channel renames.",
+ "source": "Optimum Bergen Numerical Channel Lineup PDF",
+ "channels": [
+  {
+   "name": "CBS",
+   "number": 2,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "ION",
+   "number": 3,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "NBC",
+   "number": 4,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FOX",
+   "number": 5,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Univisión",
+   "number": 6,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "ABC",
+   "number": 7,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "NJ PBS",
+   "number": 8,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "PBS"
+  },
+  {
+   "name": "My9",
+   "number": 9,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "MyNetworkTV"
+  },
+  {
+   "name": "WLNY",
+   "number": 10,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "CW",
+   "number": 11,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "The CW"
+  },
+  {
+   "name": "News 12",
+   "number": 12,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "PBS Thirteen",
+   "number": 13,
+   "groups": [
+    "kids"
+   ],
+   "guide": "PBS"
+  },
+  {
+   "name": "ShopHQ",
+   "number": 15,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Telemundo",
+   "number": 16,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "UniMÁS",
+   "number": 17,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "HSN",
+   "number": 18,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "WRNN",
+   "number": 19,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "WMBC",
+   "number": 20,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "PBS (WLIW)",
+   "number": 21,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "PBS"
+  },
+  {
+   "name": "NYC Life",
+   "number": 22,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MSNBC",
+   "number": 23,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "CNBC",
+   "number": 24,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "CNN",
+   "number": 25,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "Fox News",
+   "number": 26,
+   "groups": [
+    "news"
+   ],
+   "guide": "Fox News Channel"
+  },
+  {
+   "name": "Discovery",
+   "number": 27,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "Discovery Channel"
+  },
+  {
+   "name": "TLC",
+   "number": 28,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Food Network",
+   "number": 29,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "HGTV",
+   "number": 30,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Disney",
+   "number": 31,
+   "groups": [
+    "kids"
+   ],
+   "guide": "Disney Channel"
+  },
+  {
+   "name": "Cartoon Network",
+   "number": 32,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Nickelodeon",
+   "number": 33,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "TV Land",
+   "number": 34,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "ESPN2",
+   "number": 35,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "ESPN",
+   "number": 36,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "TNT",
+   "number": 37,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "USA Network",
+   "number": 38,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "TBS",
+   "number": 39,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FX",
+   "number": 40,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Paramount Network",
+   "number": 41,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "WE tv",
+   "number": 42,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "AMC",
+   "number": 43,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Bravo",
+   "number": 44,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Lifetime",
+   "number": 45,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "A&E",
+   "number": 46,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "History",
+   "number": 47,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Syfy",
+   "number": 48,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Freeform",
+   "number": 49,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Comedy Central",
+   "number": 50,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "E!",
+   "number": 51,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "VH1",
+   "number": 52,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MTV",
+   "number": 53,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "BET",
+   "number": 54,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MTV2",
+   "number": 55,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "fuse",
+   "number": 56,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Animal Planet",
+   "number": 57,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "truTV",
+   "number": 58,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "HLN",
+   "number": 59,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "SNY",
+   "number": 60,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Weather Channel",
+   "number": 62,
+   "groups": [
+    "news"
+   ],
+   "guide": "The Weather Channel"
+  },
+  {
+   "name": "FS1",
+   "number": 69,
+   "groups": [
+    "sports"
+   ],
+   "guide": "FOX Sports 1"
+  },
+  {
+   "name": "YES",
+   "number": 70,
+   "groups": [
+    "sports"
+   ],
+   "guide": "YES Network"
+  },
+  {
+   "name": "MSG",
+   "number": 71,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "MSG Plus",
+   "number": 72,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "C-SPAN",
+   "number": 75,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "QVC",
+   "number": 79,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Oxygen",
+   "number": 81,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "IFC",
+   "number": 83,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "GSN",
+   "number": 88,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "HSN2",
+   "number": 94,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Travel Channel",
+   "number": 96,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "TCM",
+   "number": 97,
+   "groups": [
+    "movies"
+   ],
+   "guide": "Turner Classic Movies"
+  },
+  {
+   "name": "BBC America",
+   "number": 101,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "C-SPAN 3",
+   "number": 102,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "EuroNews",
+   "number": 103,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "BBC World News",
+   "number": 104,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "Bloomberg",
+   "number": 105,
+   "groups": [
+    "news"
+   ],
+   "guide": "Bloomberg Television"
+  },
+  {
+   "name": "Fox Business",
+   "number": 106,
+   "groups": [
+    "news"
+   ],
+   "guide": "Fox Business Network"
+  },
+  {
+   "name": "LAFF TV",
+   "number": 108,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "COZI TV",
+   "number": 109,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Live Well",
+   "number": 110,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "This TV",
+   "number": 111,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "DECADES",
+   "number": 112,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Movies! Network",
+   "number": 113,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Antenna TV",
+   "number": 114,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "C-SPAN 2",
+   "number": 115,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "Discovery Family Channel",
+   "number": 120,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Nicktoons TV",
+   "number": 122,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Nick Jr.",
+   "number": 123,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Teen Nick",
+   "number": 124,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Disney Junior",
+   "number": 126,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Disney XD",
+   "number": 127,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Boomerang",
+   "number": 129,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "Kids Thirteen",
+   "number": 131,
+   "groups": [
+    "kids"
+   ]
+  },
+  {
+   "name": "WLIW World",
+   "number": 132,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "WLIW Create",
+   "number": 133,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Trinity Broadcasting Network",
+   "number": 134,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "EWTN",
+   "number": 135,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Daystar",
+   "number": 136,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Telecare",
+   "number": 137,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Jewish Broadcasting Service",
+   "number": 138,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MotorTrend",
+   "number": 150,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Crime & Investigation",
+   "number": 152,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "BlazeTV",
+   "number": 157,
+   "groups": [
+    "news"
+   ]
+  },
+  {
+   "name": "Nat Geo Wild",
+   "number": 158,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FXX",
+   "number": 159,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FYI",
+   "number": 160,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Vice TV",
+   "number": 161,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "Vice"
+  },
+  {
+   "name": "Nat Geo",
+   "number": 162,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "National Geographic"
+  },
+  {
+   "name": "Smithsonian Channel",
+   "number": 163,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Cooking Channel",
+   "number": 166,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Magnolia Network",
+   "number": 167,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Science Channel",
+   "number": 170,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Investigation Discovery",
+   "number": 171,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Destination America",
+   "number": 172,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "American Heroes Channel",
+   "number": 173,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Lifetime Movies",
+   "number": 174,
+   "groups": [
+    "movies"
+   ],
+   "guide": "Lifetime Movies"
+  },
+  {
+   "name": "Aspire",
+   "number": 176,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "ReelzChannel",
+   "number": 177,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "TV One",
+   "number": 178,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "LOGO TV",
+   "number": 179,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "OWN",
+   "number": 180,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Jewelry Television",
+   "number": 182,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "QVC Plus",
+   "number": 183,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Great American Family",
+   "number": 184,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "BET Her",
+   "number": 185,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MTV Classic",
+   "number": 186,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "CMT",
+   "number": 187,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "MTV Hits",
+   "number": 188,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "VH1 Soul",
+   "number": 189,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FXM",
+   "number": 190,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Hallmark Channel",
+   "number": 191,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "SundanceTV",
+   "number": 192,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Hallmark Mystery",
+   "number": 193,
+   "groups": [
+    "movies"
+   ],
+   "guide": "Hallmark Mystery"
+  },
+  {
+   "name": "Universo",
+   "number": 197,
+   "groups": [
+    "entertainment"
+   ],
+   "guide": "Universo"
+  },
+  {
+   "name": "Galavisión",
+   "number": 198,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "Vme",
+   "number": 199,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "FS2",
+   "number": 214,
+   "groups": [
+    "sports"
+   ],
+   "guide": "FOX Sports 2"
+  },
+  {
+   "name": "CBS Sports Network",
+   "number": 215,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "ESPNEWS",
+   "number": 216,
+   "groups": [
+    "news",
+    "sports"
+   ]
+  },
+  {
+   "name": "ESPNU",
+   "number": 217,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "NFL Network",
+   "number": 219,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "NFL RedZone",
+   "number": 220,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "NBA TV",
+   "number": 221,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "MLB Network",
+   "number": 222,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "NHL Network",
+   "number": 223,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Golf",
+   "number": 224,
+   "groups": [
+    "sports"
+   ],
+   "guide": "Golf Channel"
+  },
+  {
+   "name": "ESPN Deportes",
+   "number": 227,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "FOX Deportes",
+   "number": 228,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "TUDN",
+   "number": 229,
+   "groups": [
+    "sports"
+   ],
+   "guide": "TUDN"
+  },
+  {
+   "name": "beIN Sports Español",
+   "number": 230,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "beIN Sports",
+   "number": 231,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "FOX Soccer Plus",
+   "number": 232,
+   "groups": [
+    "entertainment"
+   ]
+  },
+  {
+   "name": "GOL TV",
+   "number": 233,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Willow",
+   "number": 239,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Outdoor Channel",
+   "number": 240,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "World Fishing Network",
+   "number": 241,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Sportsman Channel",
+   "number": 242,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "MavTV",
+   "number": 243,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "Fight Network",
+   "number": 244,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "TVG Network",
+   "number": 245,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "BTN",
+   "number": 247,
+   "groups": [
+    "sports"
+   ]
+  },
+  {
+   "name": "HBO",
+   "number": 301,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO2",
+   "number": 302,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Comedy",
+   "number": 303,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Zone",
+   "number": 304,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Latino",
+   "number": 305,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO West",
+   "number": 306,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO2 West",
+   "number": 307,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Signature West",
+   "number": 308,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Family West",
+   "number": 309,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Signature",
+   "number": 310,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "HBO Family",
+   "number": 311,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime",
+   "number": 321,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Too",
+   "number": 322,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Beyond",
+   "number": 323,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Next",
+   "number": 324,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Family Zone",
+   "number": 325,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Women",
+   "number": 326,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime West",
+   "number": 327,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Too West",
+   "number": 328,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Showcase West",
+   "number": 329,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Showtime Extreme",
+   "number": 331,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz",
+   "number": 341,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Kids & Family",
+   "number": 342,
+   "groups": [
+    "kids",
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Edge",
+   "number": 343,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz in Black",
+   "number": 344,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz West",
+   "number": 345,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Comedy",
+   "number": 346,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Cinema",
+   "number": 347,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore",
+   "number": 351,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Suspense",
+   "number": 352,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Westerns",
+   "number": 353,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Classic",
+   "number": 354,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Black",
+   "number": 355,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Family",
+   "number": 356,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore West",
+   "number": 357,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Starz Encore Action",
+   "number": 358,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Cinemax",
+   "number": 371,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "MoreMAX",
+   "number": 372,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "ThrillerMAX",
+   "number": 373,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "MovieMAX",
+   "number": 374,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Cinemáx (Spanish)",
+   "number": 375,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "5 StarMAX",
+   "number": 376,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "OuterMAX",
+   "number": 377,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Cinemax West",
+   "number": 378,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "ActionMAX",
+   "number": 379,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "TMC",
+   "number": 391,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "TMC West",
+   "number": 392,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "TMC Xtra",
+   "number": 393,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "TMC Xtra West",
+   "number": 394,
+   "groups": [
+    "movies"
+   ]
+  },
+  {
+   "name": "Flix",
+   "number": 397,
+   "groups": [
+    "movies"
+   ]
+  }
+ ]
+}

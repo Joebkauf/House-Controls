@@ -1,0 +1,85 @@
+'use strict';
+// What's on each channel right now, from TVmaze's free schedule feed (show titles only,
+// never the episode). The bridge pulls yesterday's and today's US schedule, keeps it in
+// memory, and answers for any channel whose name matches a network. No key, no account.
+const GUIDE_URL = process.env.GUIDE_URL || 'https://api.tvmaze.com/schedule';
+const GUIDE_TZ = process.env.GUIDE_TZ || 'America/New_York';
+const REFRESH_MS = 3 * 60 * 60 * 1000;
+
+const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: GUIDE_TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const dayKey = (d) => dayFmt.format(d);
+const norm = (s) => String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+
+// Channel-wall names → the name the listings use. Anything not here matches by normalized name.
+const ALIASES = {
+  foxnews: 'Fox News Channel', tcm: 'Turner Classic Movies', disney: 'Disney Channel', discovery: 'Discovery Channel', golf: 'Golf Channel',
+  bloomberg: 'Bloomberg Television', natgeo: 'National Geographic', yes: 'YES Network', cw: 'The CW', foxbusiness: 'Fox Business Network',
+  fs1: 'FOX Sports 1', fs2: 'FOX Sports 2', nick: 'Nickelodeon', ae: 'A&E', usa: 'USA Network', history: 'History', hln: 'HLN', id: 'Investigation Discovery',
+  weatherchannel: 'The Weather Channel', weather: 'The Weather Channel', paramount: 'Paramount Network', pbsthirteen: 'PBS', njpbs: 'PBS', pbswliw: 'PBS',
+  my9: 'MyNetworkTV', vicetv: 'Vice', mtvclassic: 'MTV Classic', lifetimemovies: 'Lifetime Movies', hallmark: 'Hallmark Channel', nickjr: 'Nick Jr.',
+  cartoonnetwork: 'Cartoon Network', comedycentral: 'Comedy Central', foodnetwork: 'Food Network', travelchannel: 'Travel Channel', sciencechannel: 'Science Channel',
+  smithsonianchannel: 'Smithsonian Channel', cookingchannel: 'Cooking Channel', hallmarkmystery: 'Hallmark Mystery', reelzchannel: 'Reelz', reelz: 'Reelz',
+  bbcamerica: 'BBC America', news12: 'News 12', nfl: 'NFL Network', nflnetwork: 'NFL Network', nbatv: 'NBA TV', mlbnetwork: 'MLB Network', nhlnetwork: 'NHL Network',
+  cbssportsnetwork: 'CBS Sports Network', tennischannel: 'Tennis Channel', amc: 'AMC', ifc: 'IFC', sundancetv: 'Sundance TV', sundance: 'Sundance TV',
+};
+
+const state = { days: new Map(), fetchedAt: 0, error: null, timer: null };
+
+async function fetchDay(day) {
+  const res = await fetch(`${GUIDE_URL}?country=US&date=${day}`, { signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`listings ${res.status}`);
+  const rows = await res.json();
+  // keep only what the tiles need: network, title, start, end
+  return rows.map((e) => {
+    const net = (e.show && (e.show.network || e.show.webChannel)) || null;
+    const start = Date.parse(e.airstamp || `${e.airdate}T${e.airtime || '00:00'}:00`);
+    if (!net || !net.name || !Number.isFinite(start) || !e.show.name) return null;
+    return { net: net.name, netKey: norm(net.name), title: e.show.name, start, end: start + Math.max(15, e.runtime || e.show.runtime || 30) * 60000 };
+  }).filter(Boolean);
+}
+
+async function refresh(log) {
+  const now = new Date();
+  const want = [dayKey(new Date(now - 86400000)), dayKey(now), dayKey(new Date(+now + 86400000))];
+  for (const day of want) {
+    if (state.days.has(day) && Date.now() - state.days.get(day).at < REFRESH_MS) continue;
+    try { state.days.set(day, { at: Date.now(), rows: await fetchDay(day) }); state.error = null; }
+    catch (e) { state.error = e.message; if (log) log('[guide]', day, e.message); }
+  }
+  for (const day of [...state.days.keys()]) if (!want.includes(day)) state.days.delete(day);
+  state.fetchedAt = Date.now();
+}
+
+function start(log, onChange) {
+  if (state.timer) return;
+  const tick = () => refresh(log).then(() => onChange && onChange()).catch(() => {});
+  tick();
+  state.timer = setInterval(tick, 30 * 60 * 1000);
+  state.timer.unref && state.timer.unref();
+}
+
+// { 'abc': 'Good Morning America', ... } keyed by the channel's normalized name, for channels on the wall.
+function nowOn(channels, at = Date.now()) {
+  const rows = [...state.days.values()].flatMap((d) => d.rows);
+  if (!rows.length) return {};
+  const byNet = new Map();
+  for (const r of rows) {
+    if (r.start > at || r.end <= at) continue;
+    const prev = byNet.get(r.netKey);
+    if (!prev || r.start > prev.start) byNet.set(r.netKey, r);
+  }
+  const out = {};
+  for (const c of channels || []) {
+    const key = norm(c.name); if (!key) continue;
+    const wanted = norm(c.guide || ALIASES[key] || c.name);
+    let hit = byNet.get(wanted);
+    if (!hit && !c.guide && !ALIASES[key]) {
+      // "HBO2" vs "HBO 2", "Nick Jr" vs "Nick Jr." — exact after normalizing; never a loose prefix match (ESPN would steal ESPN2)
+      for (const [k, r] of byNet) if (k === key || k === key + 'channel' || k === key + 'network' || key === k + 'channel' || key === k + 'network') { hit = r; break; }
+    }
+    if (hit) out[key] = hit.title;
+  }
+  return out;
+}
+
+module.exports = { start, refresh, nowOn, norm, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };

@@ -77,21 +77,25 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tabs .sp { flex: 1; }
 .tab.edit { color: var(--accent); }
 .tab.edit.on { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
-.grid { overflow-y: auto; display: grid; grid-auto-rows: max-content; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 8px; min-height: 0; }
-.tile { position: relative; background: var(--tile); border-radius: 16px; min-height: 116px; padding: 14px 14px 12px; display: grid; grid-template-rows: 1fr auto; gap: 6px; text-align: left; box-shadow: var(--shadow); border: 2px solid transparent; transition: transform .08s ease, background .08s ease; }
+.grid { overflow-y: auto; display: grid; grid-auto-rows: max-content; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 12px; align-content: start; padding: 2px 2px 8px; min-height: 0; }
+.tile { position: relative; background: var(--tile); border-radius: 16px; min-height: 88px; padding: 12px 14px 11px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; text-align: left; box-shadow: var(--shadow); border: 2px solid transparent; transition: transform .08s ease, background .08s ease; }
 .tile:active { transform: scale(.97); background: var(--tile-hi); }
 .tile.live { border-color: var(--accent); }
-.tile .name { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2.4vw, 30px); line-height: .95; letter-spacing: .01em; text-wrap: balance; align-self: start; padding-right: 26px; }
+/* one line on top: logo · name · CH number (the ☆ sits in the corner); one line under it: what's on */
+.tile .top { display: flex; align-items: center; gap: 8px; min-width: 0; padding-right: 30px; }
+.tile .name { font-family: var(--display); font-weight: 700; font-size: clamp(17px, 1.7vw, 22px); line-height: 1.1; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tile .top .num { margin-left: auto; white-space: nowrap; flex: none; }
+.tile .top .logo { flex: none; }
+.tile .show { font-size: 13.5px; line-height: 1.3; color: var(--fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; }
+.tile .show.tag { color: var(--muted); font-size: 12px; }
+.tile .show .lb { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 .tile .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.tile.branded { display: flex; flex-direction: column; gap: 6px; background: linear-gradient(140deg, color-mix(in srgb, var(--bc) 30%, var(--tile)) 0%, var(--tile) 75%); box-shadow: inset 0 3px 0 var(--bc), var(--shadow); }
-.tile .desc { font-size: 11.5px; line-height: 1.3; color: var(--muted); padding-right: 26px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.tile.branded > * { flex-shrink: 0; }
-.tile.branded .meta { margin-top: auto; }
+.tile.branded { background: linear-gradient(140deg, color-mix(in srgb, var(--bc) 30%, var(--tile)) 0%, var(--tile) 75%); box-shadow: inset 0 3px 0 var(--bc), var(--shadow); }
 .tile .chip { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .tile .logo { width: 22px; height: 22px; border-radius: 5px; flex: none; }
 .tile.apptile .logo { width: 26px; height: 26px; }
-.tile .num { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tile .num.none { color: var(--warn); font-family: var(--body); font-size: 12px; font-weight: 600; }
+.tile .num { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tile .num.none { color: var(--warn); font-family: var(--body); font-size: 11px; font-weight: 600; }
 .tile .onnow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
 .tile .fav { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; line-height: 34px; text-align: center; color: var(--muted); }
 .tile .fav.on { color: var(--accent); }
@@ -99,8 +103,9 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.editing input { width: 100%; box-sizing: border-box; font-size: 16px; }
 .tile.editing .row { display: grid; grid-template-columns: 1fr 72px; gap: 6px; }
 .tile.editing .del { color: var(--bad); font-size: 12px; font-weight: 600; justify-self: start; }
-.tile.apptile { min-height: 92px; grid-template-rows: 1fr auto; }
-.tile.apptile .name { font-size: clamp(24px, 2.6vw, 32px); padding-right: 0; }
+.tile.apptile { min-height: 84px; }
+.tile.apptile .top { padding-right: 0; }
+.tile.apptile .name { font-size: clamp(18px, 1.9vw, 24px); }
 .tile.apptile .meta .num { font-family: var(--body); font-size: 12px; font-weight: 600; }
 .tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
@@ -140,7 +145,13 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .sheet { position: fixed; inset: 0; background: rgba(8,12,18,.6); display: grid; place-items: center; padding: 16px; z-index: 20; }
 .sheet > div { background: var(--panel); border-radius: 18px; padding: 20px; width: min(560px, 100%); max-height: 90%; overflow-y: auto; display: grid; gap: 14px; box-shadow: var(--shadow); box-sizing: border-box; zoom: 1.4; }
 @media (max-width: 900px) { .sheet > div { zoom: 1.15; } }
-@media (max-width: 640px) { .sheet > div { zoom: 1; } }
+@media (max-width: 640px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .tile { padding: 10px 11px 10px; min-height: 80px; }
+  .tile .top { gap: 6px; padding-right: 24px; }
+  .tile .top { align-items: flex-start; } .tile .name { font-size: 16px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } .tile .num { font-size: 13px; margin-top: 2px; } .tile .logo { width: 18px; height: 18px; }
+  .tile .fav { top: 4px; right: 4px; width: 30px; height: 30px; line-height: 30px; font-size: 16px; }
+  .tile .show { font-size: 12.5px; } .sheet > div { zoom: 1; } }
 .idpanel { background: var(--bg); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
 .idpanel .big { font-family: var(--display); font-size: 22px; font-weight: 700; }
 .idlist { display: grid; gap: 4px; font-size: 14px; }
@@ -166,6 +177,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .seg button { padding: 7px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button.on { background: var(--tile); color: var(--fg); }
 .seg.wrap { flex-wrap: wrap; }
+.focus[hidden] { display: none; }
 .focus { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
 .focus .k { min-height: 40px; font-size: 13px; }
 .focus .k.on { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -331,10 +343,12 @@ const BRANDS = {
   'home screen':     ['#9aa6b8', '',                   'Back to the box’s menu'],
 };
 const brand = (name) => BRANDS[String(name || '').toLowerCase().trim()] || null;
+const gkey = (s) => String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+const whatsOn = (name) => (state.whatsOn || {})[gkey(name)] || '';
 const logoImg = (bd) => bd && bd[1] ? `<img class="logo" alt="" loading="lazy" onerror="this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64">` : '';
 
 // ---------- state + transport ---------------------------------------------
-let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none' };
+let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none', whatsOn: {} };
 let standalone = false;           // no bridge reachable: run the page's own demo
 let current = null;               // selected box id
 let tab = 'apps';
@@ -407,6 +421,7 @@ function demoState() {
     ],
     apps: DEMO_APPS.map(([id, name, samsung, pkg, boxOnly]) => ({ id, name, link: boxOnly ? null : 'https://example', samsung, pkg, boxOnly: !!boxOnly })),
     channels: DEMO_CHANNELS.map(([name, number, groups, fav]) => ({ name, number, groups, fav })),
+    whatsOn: { abc: 'Good Morning America', cbs: 'CBS Mornings', nbc: 'Today', fox: 'Good Day New York', cnn: 'CNN News Central', foxnews: 'America’s Newsroom', msnbc: 'Morning Joe', cnbc: 'Squawk Box', espn: 'SportsCenter', hgtv: 'Love It or List It', foodnetwork: 'The Pioneer Woman', tnt: 'Charmed', tbs: 'Friends', amc: 'The Walking Dead', hbo: 'The Last of Us' },
   };
 }
 function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
@@ -514,7 +529,7 @@ function render() {
   $('#now').innerHTML = b ? `
     <span class="lbl">Now on ${esc(b.name)}</span>
     <span class="big">${esc(nowText(b))}</span>
-    <span class="sub">${(b.boxType === 'directv' || b.boxType === 'ir') && b.focus !== 'tv' ? esc(b.callsign ? `${b.callsign}${b.lastChannel ? ' · CH ' + b.lastChannel : ''}` : (b.boxLabel || '')) : b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || ''))}</span>
+    <span class="sub">${(() => { const ch = b.lastChannel && state.channels.find((c) => String(c.number) === String(b.lastChannel)); const t = ch && b.powered !== false && b.status !== 'no-box' && (b.boxType !== 'androidtv' || /altice|optimum/i.test(b.app || '') || !b.app) ? whatsOn(ch.name) : ''; return t ? `On now: ${esc(t)}` : ''; })() || ((b.boxType === 'directv' || b.boxType === 'ir') && b.focus !== 'tv' ? esc(b.callsign ? `${b.callsign}${b.lastChannel ? ' · CH ' + b.lastChannel : ''}` : (b.boxLabel || '')) : b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || '')))}</span>
     ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
   // tabs
   $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
@@ -529,9 +544,8 @@ function render() {
       const on = b && b.app && a.pkg && b.app === a.pkg;
       const bd = brand(a.name);
       return `<button class="tile apptile ${na ? 'na' : ''} ${on ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-app="${esc(a.id)}" type="button">
-        <span class="name">${esc(a.name)}</span>
-        ${bd && bd[2] ? `<span class="desc">${esc(bd[2])}</span>` : ''}
-        <span class="meta"><span class="chip">${logoImg(bd)}<span class="num">${na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (on ? '' : (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span></span>${on ? '<span class="onnow">On now</span>' : ''}</span>
+        <span class="top">${logoImg(bd)}<span class="name">${esc(a.name)}</span></span>
+        <span class="meta"><span class="show tag">${esc(na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (bd && bd[2]) || (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
       </button>`;
     }).join('') || '<p class="empty">No apps set up.</p>';
   } else
@@ -545,10 +559,9 @@ function render() {
         <button class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</button></div>
     </div>` : `
     <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''} ${bd ? 'branded' : ''}" ${bd ? `style="--bc:${bd[0]}"` : ''} data-tune="${esc(c.number ?? '')}" type="button">
-      <span class="name">${esc(c.name)}</span>
-      ${bd && bd[2] ? `<span class="desc">${esc(bd[2])}</span>` : ''}
-      <span class="meta"><span class="chip">${logoImg(bd)}${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No number yet</span>'}</span>
-        ${live && String(c.number) === String(live) ? '<span class="onnow">On now</span>' : ''}</span>
+      <span class="top">${logoImg(bd)}<span class="name">${esc(c.name)}</span>${c.number ? `<span class="num">CH ${esc(c.number)}</span>` : '<span class="num none">No #</span>'}</span>
+      <span class="meta">${(() => { const t = whatsOn(c.name); return t ? `<span class="show"><span class="lb">On</span>${esc(t)}</span>` : `<span class="show tag">${esc(bd && bd[2] || '')}</span>`; })()}
+        ${live && String(c.number) === String(live) ? '<span class="onnow">Watching</span>' : ''}</span>
       <span class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</span>
     </button>`; }).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
     + (editing ? `<button class="tile add" id="addCh" type="button">+ Add channel</button>` : '');
@@ -885,8 +898,8 @@ function applyLineup(list, replace) {
   let filled = 0, added = 0;
   for (const c of list) {
     const hit = existing.find((e) => norm(e.name) === norm(c.name));
-    if (hit) { hit.number = c.number; filled++; }
-    else { existing.push({ name: c.name, number: c.number, groups: groupsFor(c.name), fav: favs.has(norm(c.name)) }); added++; }
+    if (hit) { hit.number = c.number; if (c.guide && !hit.guide) hit.guide = c.guide; filled++; }
+    else { existing.push({ name: c.name, number: c.number, groups: Array.isArray(c.groups) && c.groups.length ? c.groups : groupsFor(c.name), fav: favs.has(norm(c.name)), ...(c.guide ? { guide: c.guide } : {}) }); added++; }
   }
   state.channels = existing;
   return saveConfig({ channels: state.channels }).then(() => toast(`${filled} numbers filled in, ${added} channels added`, 4000));

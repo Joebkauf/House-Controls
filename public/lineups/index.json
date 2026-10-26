@@ -1,3 +1,5 @@
 {
-  "lineups": []
+  "lineups": [
+    { "name": "Optimum — Bergen County, NJ (Park Ridge)", "note": "211 channels from Optimum's Bergen numerical lineup sheet", "file": "bergen-nj.json" }
+  ]
 }

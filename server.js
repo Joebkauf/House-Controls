@@ -16,6 +16,7 @@ const path = require('path');
 const express = require('express');
 const TV = require('./tv');
 const CABLE = require('./cable');
+const GUIDE = require('./guide');
 
 const PORT = Number(process.env.PORT || 4680);
 const DEMO = process.env.DEMO === '1';
@@ -92,7 +93,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify() };
+  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -342,6 +343,7 @@ const wrap = (fn) => async (req, res) => {
 };
 
 app.get('/api/state', (_req, res) => res.json(publicState()));
+app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
 app.get('/api/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
@@ -511,4 +513,9 @@ app.post('/api/config', wrap(async (req) => {
   return publicState();
 }));
 
+// What's on: titles roll over on their own; push a fresh state whenever the wall would read differently.
+let lastWhatsOn = '';
+const pushWhatsOn = () => { const now = JSON.stringify(GUIDE.nowOn(config.channels)); if (now !== lastWhatsOn) { lastWhatsOn = now; broadcast(); } };
+GUIDE.start(log, pushWhatsOn);
+setInterval(pushWhatsOn, 60000).unref();
 app.listen(PORT, () => log(`Optimum Remote bridge on http://0.0.0.0:${PORT}${DEMO ? '  (DEMO mode)' : ''}`));
