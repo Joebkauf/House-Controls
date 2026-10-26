@@ -51,9 +51,11 @@ function sony(cfg, onChange) {
     if (r.json.error) throw new Error(`Sony TV: ${r.json.error[1] || r.json.error[0]}`);
     return r.json.result;
   };
-  const vol = (v) => call('audio', 'setAudioVolume', [{ target: 'speaker', volume: String(v) }]).then(() => poll());
+  const vol = (v, target = 'speaker') => call('audio', 'setAudioVolume', [{ target, volume: String(v) }]).then(() => poll());
   const t = {
-    brand: 'sony', frame: false, status: 'unknown', powered: null, volume: null, mac: cfg.mac || null,
+    brand: 'sony', frame: false, status: 'unknown', powered: null, volume: null, headphone: null, mac: cfg.mac || null,
+    // a second output the TV reports (Bluetooth or wired headphones), with its own level
+    headphoneUp: () => vol('+1', 'headphone'), headphoneDown: () => vol('-1', 'headphone'), setHeadphone: (n) => vol(Math.round(n), 'headphone'),
     volumeUp: () => vol('+1'),
     volumeDown: () => vol('-1'),
     setVolume: (n) => vol(Math.round(n)),
@@ -78,6 +80,8 @@ function sony(cfg, onChange) {
         const [list] = await call('audio', 'getVolumeInformation');
         const sp = (list || []).find((x) => x.target === 'speaker') || list[0];
         if (sp) t.volume = { level: sp.volume, max: sp.maxVolume, muted: !!sp.mute };
+        const hp = (list || []).find((x) => x.target === 'headphone');
+        t.headphone = hp ? { level: hp.volume, max: hp.maxVolume, muted: !!hp.mute } : null;
       }
       t.status = 'ok'; t.error = null;
     } catch (e) {

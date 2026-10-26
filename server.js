@@ -17,6 +17,14 @@ const express = require('express');
 const TV = require('./tv');
 const CABLE = require('./cable');
 const GUIDE = require('./guide');
+// The night timer's window, 10:00 PM – 5:30 AM house time (used at boot by publicState, so it lives up here).
+const SLEEP_TZ = process.env.GUIDE_TZ || 'America/New_York';
+const sleepFmt = new Intl.DateTimeFormat('en-US', { timeZone: SLEEP_TZ, hour: 'numeric', minute: 'numeric', hour12: false });
+function sleepAllowed(d = new Date()) {
+  const parts = Object.fromEntries(sleepFmt.formatToParts(d).map((x) => [x.type, x.value]));
+  const m = (Number(parts.hour) % 24) * 60 + Number(parts.minute);
+  return m >= 22 * 60 || m < 5 * 60 + 30;
+}
 
 const PORT = Number(process.env.PORT || 4680);
 const DEMO = process.env.DEMO === '1';
@@ -110,7 +118,7 @@ function publicRoom(r) {
     id: r.cfg.id, name: r.cfg.name, host: r.cfg.host, boxType: type, boxLabel: BOX_LABEL[type] || type,
     // compatibility fields the page reads
     status: 'no-box', needsCode: false, lastChannel: null, powered: null, app: null, title: null, callsign: null, lastError: null,
-    volume: tvRouted(r) ? tv.volume : (b && b.volume) || null,
+    volume: tvRouted(r) ? tv.volume : (b && b.volume) || null, sleepAt: r.sleep ? r.sleep.at : null,
     volumeFrom: tvRouted(r) ? 'tv' : 'box',
     focus: focusTv ? 'tv' : 'box', tvTakesKeys: tvTakesKeys(r), hasBothSides: type !== 'none' && tvTakesKeys(r),
     irKeys: type === 'ir' ? CABLE.IR_KEYS.map(([k, label]) => ({ key: k, label, learned: !!(b && b.codes[k]) })) : null,
@@ -118,7 +126,7 @@ function publicRoom(r) {
     tv: r.cfg.tv && r.cfg.tv.brand ? {
       brand: r.cfg.tv.brand, host: r.cfg.tv.host, route: r.cfg.tv.route || 'tv', hasPsk: !!r.cfg.tv.psk,
       status: tv ? tv.status : 'unknown', powered: tv ? tv.powered : null, frame: !!(tv && tv.frame),
-      model: tv && tv.model || null, error: tv && tv.error || null, paired: !!(tv && (tv.brand === 'sony' || tv.token)),
+      model: tv && tv.model || null, error: tv && tv.error || null, paired: !!(tv && (tv.brand === 'sony' || tv.token)), headphone: tv && tv.headphone || null,
       linkStatus: r.sonyLink ? r.sonyLink.status : null, linkNeedsCode: !!(r.sonyLink && r.sonyLink.needsCode), app: r.sonyLink ? r.sonyLink.app : null,
     } : null,
   };
@@ -128,7 +136,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
+  return { demo: DEMO, sleepAllowed: sleepAllowed(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -423,6 +431,32 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { clearInterval(ping); listeners.delete(res); });
 });
 
+// ---------- the night timer: one touch, everything in the room off in 90 minutes ----------
+// Only offered between 10:00 PM and 5:30 AM house time; a tap outside that window is refused.
+async function roomOff(r) {
+  try { if (r.tv && r.tv.powerOff) await r.tv.powerOff(); } catch (e) { log(`[sleep] ${r.cfg.id} TV off failed: ${e.message}`); }
+  try { if (r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready' && r.box.powered !== false) r.box.sendKey('POWER'); } catch (e) { log(`[sleep] ${r.cfg.id} box off failed: ${e.message}`); }
+}
+app.post('/api/box/:id/sleep', wrap(async (req, res) => {
+  const r = getRoom(req, res); if (!r) return;
+  if (req.body.cancel) { if (r.sleep) { clearTimeout(r.sleep.timer); r.sleep = null; } broadcast(); return { ok: true, sleepAt: null }; }
+  if (!sleepAllowed()) throw err('The night timer is for 10 PM to 5:30 AM', 409);
+  const minutes = Math.min(240, Math.max(5, Number(req.body.minutes) || 90));
+  if (r.sleep) clearTimeout(r.sleep.timer);
+  const at = Date.now() + minutes * 60000;
+  r.sleep = { at, timer: setTimeout(async () => { log(`[sleep] ${r.cfg.id}: timer up, turning the room off`); r.sleep = null; await roomOff(r); broadcast(); }, minutes * 60000) };
+  broadcast();
+  return { ok: true, sleepAt: at };
+}));
+let lastSleepAllowed = sleepAllowed();
+setInterval(() => { /* the button appears and goes away on its own at 10 PM and 5:30 AM */ const now = sleepAllowed(); if (now !== lastSleepAllowed) { lastSleepAllowed = now; broadcast(); } }, 60000).unref();
+// Headphone level on a Sony that reports one (needs the Pre-Shared Key API).
+app.post('/api/box/:id/headphone', wrap(async (req, res) => {
+  const r = getRoom(req, res); if (!r) return;
+  const tv = r.tv; if (!tv || !tv.headphoneUp) throw err('This TV does not offer a separate headphone level here', 409);
+  if (req.body.dir === 'up') await tv.headphoneUp(); else if (req.body.dir === 'down') await tv.headphoneDown(); else await tv.setHeadphone(Number(req.body.level));
+  broadcast(); return { ok: true, headphone: tv.headphone };
+}));
 app.post('/api/box/:id/key', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await sendKey(r, String(req.body.key || '').toUpperCase().replace(/^KEYCODE_/, '')); return { ok: true }; }));
 app.post('/api/box/:id/channel', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await tuneChannel(r, req.body.number); return { ok: true }; }));
 app.post('/api/box/:id/volume', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await setVolume(r, Number(req.body.level)); return { ok: true, volume: publicRoom(r).volume }; }));

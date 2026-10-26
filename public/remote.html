@@ -116,6 +116,11 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
+.k.sleep { min-height: 48px; font-weight: 600; font-size: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--tile)); }
+.k.sleep.on { background: var(--accent); color: var(--accent-ink); }
+#sleepQuick { display: none; }
+@media (max-width: 640px) { #sleepQuick { display: block; width: 100%; margin-top: 6px; } #sleepQuick[hidden] { display: none; } }
+.vol.hp .row2 .k { min-height: 46px; }
 .apppanel { grid-column: 1 / -1; background: var(--panel); border-radius: 16px; padding: 12px 14px; display: grid; gap: 10px; box-shadow: var(--shadow); }
 .aphead { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; } .aphead .st { color: var(--muted); font-size: 13px; }
 .apbody { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
@@ -285,10 +290,12 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
     <button class="k" data-key="CHANNEL_UP" data-repeat="1" type="button" aria-label="Channel up">CH∧</button>
     <button class="k more" id="moreBtn" type="button">More</button>
   </div>
+  <button class="k sleep" id="sleepQuick" type="button" hidden>🌙 Off in 90 min</button>
 
   <aside class="pad" id="pad">
     <button class="k closePad" id="closePad" type="button">Close ▾</button>
     <button class="k big power" data-key="POWER" type="button">⏻ Power</button>
+    <button class="k sleep" id="sleepBtn" type="button" hidden>🌙 Off in 90 min</button>
     <div class="focus" id="focus" hidden><span class="lbl">Keys go to</span><button class="k" data-focus="box" type="button">Box</button><button class="k" data-focus="tv" type="button">TV</button></div>
     <div class="vol">
       <div class="hdr"><span class="lbl" id="volFrom">Volume</span><span class="lvl" id="volLvl">–</span></div>
@@ -300,6 +307,10 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
       <button class="k big" data-key="VOLUME_UP" data-repeat="1" type="button">+</button>
     </div>
     <button class="k mute" id="muteBtn" data-key="MUTE" type="button">Mute</button>
+    <div class="vol hp" id="hp" hidden>
+      <div class="hdr"><span class="lbl">Headphones</span><span class="lvl" id="hpLvl">–</span></div>
+      <div class="row2"><button class="k" data-hp="down" data-repeat-hp="1" type="button">−</button><button class="k" data-hp="up" type="button">+</button></div>
+    </div>
     <div class="row2">
       <button class="k big" data-key="CHANNEL_DOWN" data-repeat="1" type="button">CH ∨</button>
       <button class="k big" data-key="CHANNEL_UP" data-repeat="1" type="button">CH ∧</button>
@@ -551,6 +562,7 @@ async function demoApi(path, body) {
     return { now: [], next: [] };
   }
   const m = path.match(/^\/api\/box\/([^/]+)\/(\w+)$/);
+  if (m && m[2] === 'sleep') { const b = state.boxes.find((x) => x.id === m[1]); b.sleepAt = body.cancel ? null : Date.now() + (body.minutes || 90) * 60000; demoSave(); render(); return { ok: true, sleepAt: b.sleepAt }; }
   if (path === '/api/config') {
     if (body.boxes) body.boxes = body.boxes.map((r) => { const old = state.boxes.find((x) => x.id === r.id); const id = r.id || String(r.name || r.host).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const bt = r.boxType || (r.host ? 'androidtv' : 'none'); const label = { androidtv: 'Android TV box', directv: 'DirecTV Genie', ir: 'Cable box (infrared)', none: '' }[bt];
@@ -739,6 +751,13 @@ function render() {
   const bar = $('#volBar'); bar.classList.toggle('muted', !!(v && v.muted));
   $('i', bar).style.width = v ? `${Math.round(100 * v.level / (v.max || 1))}%` : '0%';
   const mb = $('#muteBtn'); mb.classList.toggle('on', !!(v && v.muted)); mb.textContent = v && v.muted ? 'Muted · tap to unmute' : 'Mute';
+  // the night timer: shown 10 PM – 5:30 AM, or whenever one is already running
+  const sleepOn = b && b.sleepAt && b.sleepAt > Date.now();
+  const showSleep = !!b && (state.sleepAllowed || sleepOn) && !standalone;
+  const sleepText = sleepOn ? `🌙 Off at ${new Date(b.sleepAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${Math.max(1, Math.round((b.sleepAt - Date.now()) / 60000))} min · tap to cancel` : '🌙 Off in 90 min';
+  for (const id of ['sleepBtn', 'sleepQuick']) { const el = $('#' + id); el.hidden = !showSleep; el.textContent = sleepText; el.classList.toggle('on', !!sleepOn); }
+  const hp = tv && tv.headphone; $('#hp').hidden = !hp;
+  if (hp) $('#hpLvl').textContent = hp.muted ? 'Muted' : `${hp.level} / ${hp.max}`;
   if (!$('#keypad').children.length) $('#keypad').innerHTML = [1,2,3,4,5,6,7,8,9].map((d) => `<button class="k" data-digit="${d}" type="button">${d}</button>`).join('')
     + `<button class="k" data-clear="1" type="button" aria-label="Clear">⌫</button><button class="k" data-digit="0" type="button">0</button><button class="k go" data-go="1" type="button">Go</button>`;
   renderSheet();
@@ -1022,6 +1041,7 @@ function renderSheet(force) {
 }
 
 // ---------- events ------------------------------------------------------------
+setInterval(() => { const b = box(); if (b && b.sleepAt) render(); }, 30000);
 let repeatTimer = null, repeatKey = null;
 function stopRepeat() { clearInterval(repeatTimer); clearTimeout(repeatTimer); repeatTimer = null; repeatKey = null; }
 document.addEventListener('pointerdown', (e) => {
@@ -1036,6 +1056,12 @@ document.addEventListener('click', (e) => {
   const btn = (sel) => t.closest(sel);
   let el;
   if ((el = btn('[data-key]'))) return sendKey(el.dataset.key);
+  if (btn('#sleepBtn') || btn('#sleepQuick')) {
+    const b = box(); if (!b) return;
+    const running = b.sleepAt && b.sleepAt > Date.now();
+    return api(`/api/box/${b.id}/sleep`, running ? { cancel: true } : { minutes: 90 }).then((r) => toast(running ? 'Timer cancelled' : `${b.name} turns off at ${new Date(r.sleepAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`, 4000)).catch((err) => toast(err.message, 5000));
+  }
+  if ((el = btn('[data-hp]'))) { const b = box(); if (!b) return; return api(`/api/box/${b.id}/headphone`, { dir: el.dataset.hp }).catch((err) => toast(err.message, 5000)); }
   if ((el = btn('[data-digit]'))) return pressDigit(el.dataset.digit);
   if (btn('[data-clear]')) { entry = ''; clearTimeout(entryTimer); $('#entry').innerHTML = '&nbsp;'; return; }
   if (btn('[data-go]')) return goEntry();
