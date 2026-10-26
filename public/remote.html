@@ -417,6 +417,8 @@ async function demoApi(path, body) {
     if (irm[2] === 'forget') { k.learned = false; demoSave(); render(); return { ok: true }; }
     b.irLearning = body.key; render(); await new Promise((r) => setTimeout(r, 1500)); b.irLearning = null; k.learned = true; demoSave(); render(); return { ok: true };
   }
+  if (path === '/api/update') throw new Error('The demo page has nothing to update.');
+  if (/\/pair\/cancel$/.test(path)) { const b = state.boxes.find((x) => path.includes('/' + x.id + '/')); if (b) { b.status = b.host ? 'needs-pairing' : 'no-box'; b.needsCode = false; } demoSave(); render(); return { ok: true }; }
   const fm = path.match(/^\/api\/box\/([^/]+)\/focus$/);
   if (fm) { const b = state.boxes.find((x) => x.id === fm[1]); b.focus = body.focus === 'tv' ? 'tv' : 'box'; demoSave(); render(); return { ok: true }; }
   const tvm = path.match(/^\/api\/box\/([^/]+)\/tv(\/allow)?$/);
@@ -585,6 +587,7 @@ function nowText(b) {
 }
 
 // ---------- sheets -----------------------------------------------------------
+let dismissedPair = new Set(); // "roomId:target" the user cancelled; don't auto-reopen until it clears
 let tvEdit = null; // room id whose TV form is open
 let discoverCache = {};
 function tvForm(x) {
@@ -605,8 +608,9 @@ function renderSheet() {
   const host = $('#sheetHost');
   const pairing = state.boxes.find((x) => x.status === 'pairing' && x.needsCode);
   const pairingTv = state.boxes.find((x) => x.tv && x.tv.linkNeedsCode);
-  if (pairing && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairing.id, target: 'box' };
-  else if (pairingTv && (!sheet || sheet.pair !== pairingTv.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairingTv.id, target: 'tv' };
+  for (const k of [...dismissedPair]) { const [id, tg] = k.split(':'); const x = state.boxes.find((b) => b.id === id); const still = x && (tg === 'tv' ? x.tv && x.tv.linkNeedsCode : x.status === 'pairing' && x.needsCode); if (!still) dismissedPair.delete(k); }
+  if (pairing && !dismissedPair.has(pairing.id + ':box') && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairing.id, target: 'box' };
+  else if (pairingTv && !dismissedPair.has(pairingTv.id + ':tv') && (!sheet || sheet.pair !== pairingTv.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairingTv.id, target: 'tv' };
   if (!sheet) { host.innerHTML = ''; return; }
   if (sheet.learn) {
     const x = state.boxes.find((b) => b.id === sheet.learn);
@@ -670,6 +674,8 @@ function renderSheet() {
       ${[['none','Just the digits'],['enter','Press Enter'],['center','Press OK']].map(([v, l]) => `<button type="button" data-enter="${v}" class="${state.channelEnter === v ? 'on' : ''}">${l}</button>`).join('')}
     </div>
     <p>Leave on "Just the digits" unless the box waits for a confirm key after the number.</p>
+    <h3>Bridge</h3>
+    <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : 'Pulls the newest version and restarts (about a minute)'}</span></div>
     <div class="row2"><span></span><button class="btn pri" id="closeSheet" type="button">Done</button></div>
   </div></div>`;
 }
@@ -725,7 +731,8 @@ document.addEventListener('click', (e) => {
   }
   if ((el = btn('[data-allow]'))) { toast('Look at the TV and press Allow'); return api(`/api/box/${el.dataset.allow}/tv/allow`).catch((err) => toast(err.message)); }
   if (btn('#closeSheet')) { sheet = null; return render(); }
-  if (btn('#pairCancel')) { sheet = null; return render(); }
+  if (btn('#updateBridge')) { $('#updateOut').textContent = 'Updating… the page reconnects by itself.'; return api('/api/update', {}).then((r) => { $('#updateOut').textContent = r.message || 'Restarting…'; }).catch((err) => { $('#updateOut').textContent = err.message; }); }
+  if (btn('#pairCancel')) { const s = sheet; sheet = null; if (s && s.pair) { dismissedPair.add(s.pair + ':' + (s.target || 'box')); api(`/api/box/${s.pair}/pair/cancel`, { target: s.target || 'box' }).catch(() => {}); } return render(); }
   if (btn('#pairSend')) { const x = state.boxes.find((b) => b.id === sheet.pair); return api(`/api/box/${x.id}/code`, { code: $('#pairCode').value, target: sheet.target || 'box' }).then(() => toast('Code sent, waiting…')).catch((err) => toast(err.message)); }
   if ((el = btn('[data-pair]'))) { sheet = { pair: el.dataset.pair, target: el.dataset.target || 'box' }; return api(`/api/box/${el.dataset.pair}/pair`, { target: sheet.target }).then(render).catch((err) => toast(err.message)); }
   if ((el = btn('[data-learn]'))) { sheet = { learn: el.dataset.learn }; return render(); }

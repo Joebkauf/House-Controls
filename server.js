@@ -120,9 +120,10 @@ function androidLink(id, host, label) {
     remote.on('ready', () => { L.status = 'ready'; L.needsCode = false; fs.writeFileSync(certPath(id), JSON.stringify(remote.getCertificate())); log(`[${id}] ready`); broadcast(); });
     try {
       const started = await remote.start();
-      if (!started && L.status !== 'ready') { L.status = cert ? 'offline' : 'needs-pairing'; L.lastError = L.lastError || 'could not connect'; broadcast(); }
-    } catch (e) { L.status = cert ? 'offline' : 'needs-pairing'; L.lastError = e.code || e.message || String(e); log(`[${id}] connect failed`, L.lastError); broadcast(); }
+      if (!started && L.status !== 'ready') { L.status = cert ? 'offline' : 'needs-pairing'; L.needsCode = false; L.lastError = L.lastError || (pair ? 'the box stopped asking for a code; tap Pair again' : 'could not connect'); broadcast(); }
+    } catch (e) { L.status = cert ? 'offline' : 'needs-pairing'; L.needsCode = false; L.lastError = e.code || e.message || String(e); log(`[${id}] connect failed`, L.lastError); broadcast(); }
   };
+  L.cancelPairing = () => { L.close(); L.needsCode = false; L.status = readCert(id) ? 'offline' : 'needs-pairing'; L.lastError = null; broadcast(); if (readCert(id)) L.connect(); };
   L.notReady = () => err(`${label}: ${{ 'needs-pairing': 'not paired yet (⚙ → Pair)', pairing: 'still pairing', connecting: 'connecting', offline: 'not reachable' }[L.status] || L.status}`, 409);
   L.sendKey = (name) => {
     if (L.status !== 'ready') throw L.notReady();
@@ -349,6 +350,7 @@ app.post('/api/box/:id/code', wrap(async (req, res) => {
   const code = String(req.body.code || '').trim().toUpperCase(); if (!code) throw err('enter the code the TV shows');
   L.sendCode(code); return { ok: true };
 }));
+app.post('/api/box/:id/pair/cancel', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; const L = linkOf(r, req); if (L) L.cancelPairing(); return { ok: true }; }));
 app.post('/api/box/:id/reconnect', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; const L = linkOf(r, req); if (L) L.connect(); else if (r.box) r.box.poll(); return { ok: true }; }));
 
 // Infrared: learn a key from the real remote, or forget one.
@@ -398,6 +400,20 @@ app.get('/api/discover', wrap(async () => {
   const [tvs, blasters] = await Promise.all([TV.ssdpSearch(3000), CABLE.discoverBlasters(), sleep(3000)]);
   browser.stop(); bonjour.destroy();
   return { found: [...found.values()], tvs, blasters };
+}));
+
+// Update the bridge in place: pull the newest code, install, exit (systemd restarts it).
+app.post('/api/update', wrap(async () => {
+  if (DEMO) throw err('demo mode has nothing to update');
+  const { execFile } = require('child_process');
+  const run = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, { cwd: __dirname, timeout: 240000 }, (e, out, errOut) => (e ? reject(new Error((errOut || e.message).trim().split('\n').pop())) : resolve(out))));
+  const before = (await run('git', ['rev-parse', '--short', 'HEAD'])).trim();
+  await run('git', ['pull', '--ff-only']);
+  const after = (await run('git', ['rev-parse', '--short', 'HEAD'])).trim();
+  if (before === after) return { ok: true, message: 'Already on the newest version.' };
+  await run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--loglevel=error']);
+  setTimeout(() => { log('[update] restarting after update', before, '→', after); process.exit(0); }, 500);
+  return { ok: true, message: `Updated ${before} → ${after}. Restarting…` };
 }));
 
 // Rooms + channels + options.
