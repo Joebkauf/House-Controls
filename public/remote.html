@@ -60,6 +60,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .box .nm { font-family: var(--display); font-size: 19px; font-weight: 600; }
 .box .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .box .st > span, .box .st { overflow: hidden; }
+.box .onph { display: none; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .dot.ready { background: var(--ok); } .dot.pairing, .dot.connecting { background: var(--warn); } .dot.offline, .dot.needs-pairing { background: var(--bad); }
 .now { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 4px; }
@@ -293,7 +294,8 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
   .tile .show { font-size: 10px; line-height: 1.25; } .tile .show .chn { font-size: 11px; margin-right: 4px; } .tile .show .lb { display: none; }
   .tile .meta { gap: 4px; }
   .tile.apptile { min-height: 56px; } .tile.apptile .name { font-size: 13px; } .tile.apptile .logo { width: 18px; height: 18px; }
-  .now { width: 100%; text-align: left; }
+  .now { display: none; } /* the highlighted room already says which TV; its status line says what is on */
+  .box .onph { display: flex; } .box:has(.onph) .st:not(.onph) { display: none; }
   /* the rail sits above the wall on a phone: its height must never change, or the wall jumps */
   #boxes { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .box { min-width: 0; } .box .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -763,6 +765,13 @@ function render() {
     <button class="box ${x.id === current ? 'on' : ''}" data-box="${esc(x.id)}" type="button">
       <span class="nm">${esc(x.name)}</span>
       <span class="st"><i class="dot ${esc(x.status)}"></i>${statusWord(x)}</span>
+      ${(() => { // on a phone the big "Now on" block is gone; a room that is playing says what, in its own status line
+        if (!((x.status === 'ready' || x.status === 'no-box') && x.powered !== false)) return '';
+        const ch = x.lastChannel && state.channels.find((c) => String(c.number) === String(x.lastChannel));
+        const onCable = x.status === 'ready' && (x.boxType !== 'androidtv' || /altice|optimum/i.test(x.app || '') || !x.app);
+        const show = ch && onCable ? whatsOn(ch.name) : '';
+        const what = nowText(x); if (!what || what === statusWord(x) || /^(Optimum TV|TV|Cable box|On)$/.test(what)) return '';
+        return `<span class="st onph"><i class="dot ${esc(x.status)}"></i>${esc(show ? `${what} · ${show}` : what)}</span>`; })()}
     </button>`).join('') || `<p class="lbl">No boxes yet</p>`);
   // now playing
   setHTML($('#now'), b ? `
