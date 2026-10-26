@@ -118,7 +118,7 @@ phone) switches rooms.
 | Power | TV set up: the TV's own power (Wake-on-LAN to turn on). Otherwise `POWER` to the box |
 | − / + (hold to repeat) | TV set up: the TV's volume. Otherwise `VOLUME_DOWN` / `VOLUME_UP` to the box |
 | Mute | TV set up: the TV's mute. Otherwise `MUTE` to the box |
-| Art mode ↔ TV (Frames) | a short power press on the Frame, which swaps picture and art |
+| Power on a Frame | a HELD power press, so it turns off instead of switching to Art mode (never used here) |
 | App tile | box or Sony: an app link over the Android TV protocol. Samsung alone: the TV's own app launcher |
 | Arrows, OK, Back, Home | the box, or the TV, per the Keys-go-to switch |
 | Channel tile / keypad | the digits on the box (Android TV keys, Genie tune, or learned infrared) |

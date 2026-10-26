@@ -183,7 +183,6 @@ function demoTv(cfg) {
     setVolume: cfg.brand === 'sony' ? async (n) => { t.volume.level = Math.max(0, Math.min(100, Math.round(n))); } : null,
     mute: async () => { if (t.volume) t.volume.muted = !t.volume.muted; },
     powerToggle: async () => { t.powered = !t.powered; }, powerOn: async () => { t.powered = true; }, powerOff: async () => { t.powered = false; },
-    artMode: cfg.brand === 'samsung' ? async () => { t.art = !t.art; } : null,
     allow: async () => { t.token = 'demo'; }, poll: async () => t, close: () => {},
     sendKey: cfg.brand === 'samsung' ? async () => {} : undefined, launchApp: cfg.brand === 'samsung' ? async () => {} : undefined,
   });
@@ -257,23 +256,23 @@ function syncRooms() {
 syncRooms();
 
 // ---------- what a key does in a room ----------------------------------------------
-const TV_KEYS = { VOLUME_UP: 'volumeUp', VOLUME_DOWN: 'volumeDown', MUTE: 'mute', VOLUME_MUTE: 'mute', POWER: 'powerToggle', TV_POWER: 'powerToggle', ART_MODE: 'artMode' };
+const TV_KEYS = { VOLUME_UP: 'volumeUp', VOLUME_DOWN: 'volumeDown', MUTE: 'mute', VOLUME_MUTE: 'mute', POWER: 'powerToggle', TV_POWER: 'powerToggle' };
 const NAV_KEYS = /^(DPAD_|BACK$|HOME$|MENU$|EXIT$|ENTER$|INFO$|MEDIA_|CAPTIONS$|SETTINGS$)/;
 async function sendKey(r, name) {
   const tvAct = TV_KEYS[name];
-  if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER' || name === 'ART_MODE')) {
+  if (name === 'ART_MODE') throw err('Art mode is turned off in this app');
+  if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER')) {
     if (!r.tv[tvAct]) throw err(`the ${r.tv.brand} TV cannot do ${name}`);
     try { await r.tv[tvAct](); broadcast(); return; }
     catch (e) {
       r.tv.error = e.message; broadcast();
       // The TV did not take it: try the box (HDMI-CEC usually passes volume to the TV).
-      const viaBox = r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready' && name !== 'ART_MODE';
+      const viaBox = r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready';
       if (!viaBox) throw Object.assign(e, { status: 502 });
       log(`[${r.cfg.id}] TV refused ${name} (${e.message}); sending to the box instead`);
       r.box.sendKey(name); return;
     }
   }
-  if (name === 'ART_MODE') throw err('Art mode needs a Samsung Frame set up under ⚙');
   const toTv = r.focus === 'tv' && tvTakesKeys(r);
   const noBox = r.cfg.boxType === 'none' || !r.box;
   if (toTv || noBox) {

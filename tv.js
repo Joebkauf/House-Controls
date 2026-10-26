@@ -154,14 +154,19 @@ function samsung(cfg, onChange, saveToken) {
     setVolume: null, // Samsung does not report its level over this channel
     mute: () => key('KEY_MUTE'),
     powerOn: async () => { await wakeOnLan(t.mac); await sleep(1500); return poll(); },
-    // A Frame's power key: short press swaps TV ↔ Art mode, a held press turns it off.
+    // A Frame's power key: a short press swaps TV ↔ Art mode, a HELD press turns it off.
+    // We never want Art mode, so a Frame is always turned off with a held press, and
+    // if it still reports "on" (= it slipped into Art mode) we hold again, longer.
     powerOff: async () => {
-      if (t.frame) { await key('KEY_POWER', 'Press'); await sleep(3200); await key('KEY_POWER', 'Release'); }
-      else await key('KEY_POWER');
-      await sleep(1500); return poll();
+      if (!t.frame) { await key('KEY_POWER'); await sleep(1500); return poll(); }
+      for (const holdMs of [3500, 5000]) {
+        await key('KEY_POWER', 'Press'); await sleep(holdMs); await key('KEY_POWER', 'Release');
+        await sleep(2500); await poll();
+        if (t.powered === false) return t;
+      }
+      return t;
     },
     powerToggle: () => (t.powered === false ? t.powerOn() : t.powerOff()),
-    artMode: () => key('KEY_POWER'),
     sendKey: (code) => key(code),
     launchApp: async (appId) => {
       const r = await fetchJson(`http://${cfg.host}:${cfg.infoPort || 8001}/api/v2/applications/${appId}`, { method: 'POST' }, 4000);
@@ -202,7 +207,7 @@ function ssdpSearch(ms = 2500) {
 // Android-style key names → Samsung remote key codes, for a room with a TV and no box.
 const SAMSUNG_KEYS = {
   DPAD_UP: 'KEY_UP', DPAD_DOWN: 'KEY_DOWN', DPAD_LEFT: 'KEY_LEFT', DPAD_RIGHT: 'KEY_RIGHT', DPAD_CENTER: 'KEY_ENTER', ENTER: 'KEY_ENTER',
-  BACK: 'KEY_RETURN', HOME: 'KEY_HOME', MENU: 'KEY_MENU', INFO: 'KEY_INFO', GUIDE: 'KEY_GUIDE', CAPTIONS: 'KEY_CAPTION', TV_INPUT: 'KEY_SOURCE',
+  BACK: 'KEY_RETURN', HOME: 'KEY_HOME', MENU: 'KEY_MENU', INFO: 'KEY_INFO', GUIDE: 'KEY_GUIDE', CAPTIONS: 'KEY_SUB_TITLE', TV_INPUT: 'KEY_SOURCE',
   CHANNEL_UP: 'KEY_CHUP', CHANNEL_DOWN: 'KEY_CHDOWN', LAST_CHANNEL: 'KEY_PRECH', MEDIA_PLAY_PAUSE: 'KEY_PLAY', MEDIA_REWIND: 'KEY_REWIND', MEDIA_FAST_FORWARD: 'KEY_FF',
   VOLUME_UP: 'KEY_VOLUP', VOLUME_DOWN: 'KEY_VOLDOWN', MUTE: 'KEY_MUTE', VOLUME_MUTE: 'KEY_MUTE',
   0: 'KEY_0', 1: 'KEY_1', 2: 'KEY_2', 3: 'KEY_3', 4: 'KEY_4', 5: 'KEY_5', 6: 'KEY_6', 7: 'KEY_7', 8: 'KEY_8', 9: 'KEY_9',

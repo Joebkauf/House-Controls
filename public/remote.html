@@ -237,7 +237,6 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
       <button class="k big" data-key="VOLUME_UP" data-repeat="1" type="button">+</button>
     </div>
     <button class="k mute" id="muteBtn" data-key="MUTE" type="button">Mute</button>
-    <button class="k art" id="artBtn" data-key="ART_MODE" type="button" hidden>🖼 Art mode ↔ TV</button>
     <div class="row2">
       <button class="k big" data-key="CHANNEL_DOWN" data-repeat="1" type="button">CH ∨</button>
       <button class="k big" data-key="CHANNEL_UP" data-repeat="1" type="button">CH ∧</button>
@@ -448,8 +447,7 @@ async function demoApi(path, body) {
   if (act === 'app') { const a = state.apps.find((x) => x.id === body.app); if (!a) throw new Error('unknown app'); const viaTv = b.boxType !== 'androidtv'; if (viaTv && a.boxOnly) throw new Error(`${a.name} needs an Android TV box in the room`); if (viaTv && b.tv && b.tv.brand === 'samsung' && !a.samsung) throw new Error(`${a.name} is not set up for Samsung yet`); if (viaTv && !b.tv) throw new Error('nothing here can open apps'); b.app = a.pkg; b.powered = true; if (viaTv && b.hasBothSides) b.focus = 'tv'; }
   else if (act === 'key') {
     const k = body.key;
-    if (k === 'ART_MODE') { if (!b.tv || !b.tv.frame) throw new Error('Art mode needs a Samsung Frame set up under ⚙'); b.tv.art = !b.tv.art; }
-    else if (b.boxType === 'ir' && b.focus !== 'tv' && !/VOLUME|MUTE|POWER/.test(k)) { const kk = (b.irKeys || []).find((x) => x.key === k); if (kk && !kk.learned) throw new Error(`${kk.label} is not learned yet (⚙ → Learn keys)`); }
+    if (b.boxType === 'ir' && b.focus !== 'tv' && !/VOLUME|MUTE|POWER/.test(k)) { const kk = (b.irKeys || []).find((x) => x.key === k); if (kk && !kk.learned) throw new Error(`${kk.label} is not learned yet (⚙ → Learn keys)`); }
     else if (k === 'VOLUME_UP') v.level = Math.min(v.max, v.level + 1);
     else if (k === 'VOLUME_DOWN') v.level = Math.max(0, v.level - 1);
     else if (k === 'MUTE') v.muted = !v.muted;
@@ -561,7 +559,6 @@ function render() {
   const note = $('#volNote');
   note.hidden = !(tv && b.volumeFrom === 'tv' && (tv.status !== 'ok' || (tv.brand === 'samsung' && !v)));
   note.textContent = tv && tv.status !== 'ok' ? tvStatusWord(tv) : (tv && tv.brand === 'samsung' ? 'Samsung TVs do not report the level; the TV shows it.' : '');
-  $('#artBtn').hidden = !(tv && tv.frame);
   const fx = $('#focus'); fx.hidden = true; // keys pick their own target: a channel means the box, an app opened on the TV means the TV
   if (b) fx.querySelectorAll('[data-focus]').forEach((k) => k.classList.toggle('on', k.dataset.focus === (b.focus || 'box')));
   $('#volLvl').textContent = v ? (v.muted ? 'Muted' : `${v.level} / ${v.max}`) : (tv && tv.brand === 'samsung' && tv.status === 'ok' ? 'TV' : '–');
@@ -610,7 +607,7 @@ function tvForm(x) {
       <input id="tvHost" value="${esc(tv.host)}" placeholder="TV IP (192.168.1.60)" inputmode="decimal">
       <input id="tvPsk" value="" placeholder="${tv.brand==='sony' ? (tv.hasPsk ? 'Pre-Shared Key (saved; retype to change)' : 'Pre-Shared Key from the TV') : 'Sony only: Pre-Shared Key'}" ${tv.brand==='samsung'?'disabled':''}>
     </div>
-    <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="tvFrame" ${tv.frame?'checked':''} ${tv.brand==='sony'?'disabled':''}> Samsung The Frame (adds the Art mode button)</label>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="tvFrame" ${tv.frame?'checked':''} ${tv.brand==='sony'?'disabled':''}> Samsung The Frame (its power key needs a long hold to turn OFF, so we hold it)</label>
     <div><span class="lbl">Volume &amp; power go to</span><br><div class="seg" id="tvRoute">${[['tv','The TV directly'],['box','The box (HDMI-CEC)']].map(([v,l]) => `<button type="button" data-route="${v}" class="${(tv.route||'tv')===v?'on':''}">${l}</button>`).join('')}</div></div>
     <p>Sony: Settings → Network → Home Network → IP Control → Authentication = "Normal and Pre-Shared Key", set the key, turn Simple IP control on, and under Remote start choose On. Samsung: the TV pops "Allow" the first time; tick it. Keep the TVs on fixed IPs.</p>
     <div class="row2"><button class="btn" id="tvCancel" type="button">Cancel</button><button class="btn pri" id="tvSave" type="button">Save TV</button></div>
