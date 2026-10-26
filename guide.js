@@ -82,4 +82,24 @@ function nowOn(channels, at = Date.now()) {
   return out;
 }
 
-module.exports = { start, refresh, nowOn, norm, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };
+// Where a show is on: every airing of it (today, yesterday, tomorrow) on a channel that is on the wall.
+// { now: [...airing right now], next: [...coming up] }, each { title, channel, number, start, end }.
+function findShow(channels, q, at = Date.now()) {
+  const want = norm(q); if (!want) return { now: [], next: [] };
+  const byNet = new Map();
+  for (const c of channels || []) {
+    if (!c.number) continue;
+    const key = norm(c.name); const k = norm(c.guide || ALIASES[key] || c.name);
+    for (const v of [k, key, key + 'channel', key + 'network', key.replace(/(channel|network)$/, '')]) if (v && !byNet.has(v)) byNet.set(v, c);
+  }
+  const hits = [];
+  for (const d of state.days.values()) for (const r of d.rows) {
+    const t = norm(r.title); if (!(t === want || t.includes(want) || (want.length > 5 && want.includes(t) && t.length > 3))) continue;
+    const c = byNet.get(r.netKey); if (!c) continue;
+    hits.push({ title: r.title, channel: c.name, number: c.number, net: r.net, start: r.start, end: r.end });
+  }
+  hits.sort((a, b) => a.start - b.start);
+  return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, 6) };
+}
+
+module.exports = { start, refresh, nowOn, findShow, norm, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };

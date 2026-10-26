@@ -128,7 +128,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
+  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -316,6 +316,15 @@ const NAV_KEYS = /^(DPAD_|BACK$|HOME$|MENU$|EXIT$|ENTER$|INFO$|MEDIA_|CAPTIONS$|
 async function sendKey(r, name) {
   const tvAct = TV_KEYS[name];
   if (name === 'ART_MODE') throw err('Art mode is turned off in this app');
+  // CH up / down on a Stream box walk the channel wall (next / previous number we know), so the step is
+  // visible on the wall and never lands on a channel nobody put there. Without a known channel, the raw key goes.
+  if ((name === 'CHANNEL_UP' || name === 'CHANNEL_DOWN') && r.cfg.boxType === 'androidtv' && r.box && r.box.lastChannel) {
+    const nums = [...new Set(config.channels.map((c) => Number(c.number)).filter((n) => n > 0))].sort((a, z) => a - z);
+    const cur = Number(r.box.lastChannel); const i = nums.indexOf(cur);
+    const up = name === 'CHANNEL_UP';
+    const next = i >= 0 ? nums[(i + (up ? 1 : nums.length - 1)) % nums.length] : (up ? nums.find((n) => n > cur) || nums[0] : [...nums].reverse().find((n) => n < cur) || nums[nums.length - 1]);
+    if (next) { await tuneChannel(r, next); return; }
+  }
   if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER')) {
     if (!r.tv[tvAct]) throw err(`the ${r.tv.brand} TV cannot do ${name}`);
     try { await r.tv[tvAct](); broadcast(); return; }
@@ -398,6 +407,7 @@ const wrap = (fn) => async (req, res) => {
 };
 
 app.get('/api/state', (_req, res) => res.json(publicState()));
+app.get('/api/find-show', (req, res) => res.json(GUIDE.findShow(config.channels, String(req.query.q || ''))));
 app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
 app.get('/api/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -605,6 +615,7 @@ app.post('/api/update', wrap(async () => {
 app.post('/api/config', wrap(async (req) => {
   const body = req.body || {};
   if (Array.isArray(body.channels)) config.channels = body.channels;
+  if (Array.isArray(body.people)) config.people = body.people.filter((p) => p && p.name).map((p) => ({ id: p.id || slug(p.name), name: String(p.name).slice(0, 40), favs: Array.isArray(p.favs) ? p.favs.map(String) : [], shows: Array.isArray(p.shows) ? p.shows.map((x) => String(x).slice(0, 60)).filter(Boolean) : [] }));
   if (Array.isArray(body.boxes)) {
     config.boxes = body.boxes.filter((b) => b && (b.host || b.name)).map((b) => {
       // a new room never takes over an existing room's id ("Den" next to "Den (TV only)" both slug to den)

@@ -115,6 +115,16 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
+.people { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 2px 0; }
+.people.lbl { padding-top: 6px; }
+.pchip { padding: 9px 14px; border-radius: 999px; background: var(--tile); font-weight: 600; font-size: 14px; box-shadow: var(--shadow); }
+.pchip.on { background: var(--accent); color: var(--accent-ink); }
+.pchip.add { background: transparent; border: 2px dashed var(--line); box-shadow: none; color: var(--muted); }
+.pchip.del { color: var(--bad); }
+.inl { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.inl input { font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); min-width: 160px; }
+.tile.add.inl { place-items: stretch; display: grid; gap: 8px; }
+.tile.showtile .name { font-size: clamp(17px, 1.7vw, 22px); }
 
 /* pad */
 .pad { background: var(--panel); border-radius: 18px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; overflow-y: auto; }
@@ -494,6 +504,12 @@ function demoState() {
 }
 function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
+  if (path.startsWith('/api/find-show')) {
+    const q = decodeURIComponent(path.split('q=')[1] || '').toLowerCase(); const t = Date.now();
+    if (/friend/.test(q)) return { now: [{ title: 'Friends', channel: 'TBS', number: 39, start: t - 600000, end: t + 1200000 }], next: [{ title: 'Friends', channel: 'TBS', number: 39, start: t + 1200000, end: t + 3000000 }] };
+    if (/jeopardy/.test(q)) return { now: [], next: [{ title: 'Jeopardy!', channel: 'ABC', number: 7, start: t + 3600000, end: t + 5400000 }] };
+    return { now: [], next: [] };
+  }
   const m = path.match(/^\/api\/box\/([^/]+)\/(\w+)$/);
   if (path === '/api/config') {
     if (body.boxes) body.boxes = body.boxes.map((r) => { const old = state.boxes.find((x) => x.id === r.id); const id = r.id || String(r.name || r.host).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -585,29 +601,32 @@ async function saveConfig(patch) {
 }
 
 // ---------- render ----------------------------------------------------------
+// Swap an element's HTML only when it really changed, keeping its scroll: state pushes arrive every few
+// seconds and a full redraw made the wall jump under a finger.
+function setHTML(el, html) { if (el.__html === html) return; const top = el.scrollTop; el.__html = html; el.innerHTML = html; if (top) el.scrollTop = top; }
 function render() {
   const b = box();
   // boxes
-  $('#boxes').innerHTML = state.boxes.map((x) => `
+  setHTML($('#boxes'), state.boxes.map((x) => `
     <button class="box ${x.id === current ? 'on' : ''}" data-box="${esc(x.id)}" type="button">
       <span class="nm">${esc(x.name)}</span>
       <span class="st"><i class="dot ${esc(x.status)}"></i>${statusWord(x)}</span>
-    </button>`).join('') || `<p class="lbl">No boxes yet</p>`;
+    </button>`).join('') || `<p class="lbl">No boxes yet</p>`);
   // now playing
-  $('#now').innerHTML = b ? `
+  setHTML($('#now'), b ? `
     <span class="lbl">Now on ${esc(b.name)}</span>
     <span class="big">${esc(nowText(b))}</span>
     <span class="sub">${(() => { const ch = b.lastChannel && state.channels.find((c) => String(c.number) === String(b.lastChannel)); const t = ch && b.powered !== false && b.status !== 'no-box' && (b.boxType !== 'androidtv' || /altice|optimum/i.test(b.app || '') || !b.app) ? whatsOn(ch.name) : ''; return t ? `On now: ${esc(t)}` : ''; })() || ((b.boxType === 'directv' || b.boxType === 'ir') && b.focus !== 'tv' ? esc(b.callsign ? `${b.callsign}${b.lastChannel ? ' · CH ' + b.lastChannel : ''}` : (b.boxLabel || '')) : b.status === 'no-box' ? esc(b.tv ? `${b.tv.brand === 'sony' ? 'Sony' : 'Samsung'} TV${b.tv.model ? ' · ' + b.tv.model : ''}` : '') : (b.powered === false ? 'TV box is in standby' : esc(appName(b.app) || '')))}</span>
-    ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '';
+    ${state.demo ? '<span class="demo-note">Demo: not connected to a real box</span>' : ''}` : '');
   // tabs
-  $('#tabs').innerHTML = GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
-    + `<span class="sp"></span>${tab === 'apps' ? '' : `${editing ? '<button class="tab" id="importBtn" type="button">Load lineup</button>' : ''}<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`;
+  setHTML($('#tabs'), GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
+    + `<span class="sp"></span>${tab === 'apps' ? '' : `${editing ? '<button class="tab" id="importBtn" type="button">Load lineup</button>' : ''}<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`);
   // grid
-  const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? c.fav : (c.groups || []).includes(tab)));
+  const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? isFav(c) : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
   if (tab === 'apps') {
     const tvOnly = b && b.boxType !== 'androidtv', samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
-    $('#grid').innerHTML = (state.apps || []).map((a) => {
+    setHTML($('#grid'), (state.apps || []).map((a) => {
       const na = (a.boxOnly && tvOnly) || (samsungOnly && !a.samsung) || (tvOnly && !b.tv);
       const on = b && b.app && a.pkg && b.app === a.pkg;
       const bd = brand(a.name);
@@ -615,24 +634,25 @@ function render() {
         <span class="top">${logoImg(bd, a.name)}<span class="name">${esc(a.name)}</span></span>
         <span class="meta"><span class="show tag">${esc(na ? (a.boxOnly ? 'Needs an Android TV box' : (b && !b.tv ? 'No TV in this room' : 'Not on this TV')) : (bd && bd[2]) || (tvOnly && b.tv ? 'Open on the TV' : 'Open'))}</span>${on ? '<span class="onnow">On now</span>' : ''}</span>
       </button>`;
-    }).join('') || '<p class="empty">No apps set up.</p>';
+    }).join('') || '<p class="empty">No apps set up.</p>');
   } else
-  $('#grid').innerHTML = (list.map((c) => { const bd = brand(c.name, c.groups); return editing ? `
+  setHTML($('#grid'), (tab === 'fav' ? favHeader() : '') + (list.map((c) => { const bd = brand(c.name, c.groups); return editing ? `
     <div class="tile editing" data-i="${c.i}">
       <div class="row">
         <input id="nm${c.i}" value="${esc(c.name)}" placeholder="Name" aria-label="Channel name" data-field="name">
         <input id="no${c.i}" value="${esc(c.number ?? '')}" placeholder="#" inputmode="numeric" aria-label="Channel number" data-field="number">
       </div>
       <div class="meta"><button class="del" data-del="${c.i}" type="button">Remove</button>
-        <button class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</button></div>
+        <button class="fav ${isFav(c) ? 'on' : ''}" data-fav="${c.i}" type="button" aria-label="Favorite">${isFav(c) ? '★' : '☆'}</button></div>
     </div>` : `
     <button class="tile ${live && String(c.number) === String(live) ? 'live' : ''} branded" style="--bc:${bd[0]}" data-tune="${esc(c.number ?? '')}" type="button">
       <span class="top">${logoImg(bd, c.name)}<span class="name ${c.name.length > 14 ? 'long' : ''}">${esc(c.name)}</span></span>
       <span class="meta">${(() => { const t = whatsOn(c.name); const chn = c.number ? `<span class="chn">CH ${esc(c.number)}</span>` : '<span class="chn none">No #</span>'; return t ? `<span class="show">${chn}<span class="lb">On</span>${esc(t)}</span>` : `<span class="show tag">${chn}${esc(bd[2] || '')}</span>`; })()}
         ${live && String(c.number) === String(live) ? '<span class="onnow">Watching</span>' : ''}</span>
-      <span class="fav ${c.fav ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${c.fav ? '★' : '☆'}</span>
-    </button>`; }).join('') || `<p class="empty">${tab === 'fav' ? 'No favorites yet. Tap the ☆ on a channel.' : 'No channels in this group.'}</p>`)
-    + (editing ? `<button class="tile add" id="addCh" type="button">+ Add channel</button>` : '');
+      <span class="fav ${isFav(c) ? 'on' : ''}" data-fav="${c.i}" role="button" aria-label="Favorite">${isFav(c) ? '★' : '☆'}</span>
+    </button>`; }).join('') || `<p class="empty">${tab === 'fav' ? (person ? `No favorites for ${esc(personName())} yet. Tap the ☆ on any channel while ${esc(personName())} is picked.` : 'No favorites yet. Tap the ☆ on a channel.') : 'No channels in this group.'}</p>`)
+    + (editing ? `<button class="tile add" id="addCh" type="button">+ Add channel</button>` : ''));
+  if (tab === 'fav') refreshShows();
   // volume
   const v = b && b.volume;
   const tv = b && b.tv;
@@ -649,6 +669,43 @@ function render() {
   if (!$('#keypad').children.length) $('#keypad').innerHTML = [1,2,3,4,5,6,7,8,9].map((d) => `<button class="k" data-digit="${d}" type="button">${d}</button>`).join('')
     + `<button class="k" data-clear="1" type="button" aria-label="Clear">⌫</button><button class="k" data-digit="0" type="button">0</button><button class="k go" data-go="1" type="button">Go</button>`;
   renderSheet();
+}
+// ---------- people: everyone's own favorites and shows ----------
+let person = ''; try { person = localStorage.getItem('or.person') || ''; } catch {}
+let personAdding = false, showAdding = false;
+const norm0 = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const personRec = () => (state.people || []).find((p) => p.id === person) || null;
+const personName = () => { const p = personRec(); return p ? p.name : 'the house'; };
+function isFav(c) { const p = personRec(); if (person && p) return p.favs.some((f) => norm0(f) === norm0(c.name)); return !!c.fav; }
+const showInfo = {}; // show name -> { at, data }
+function refreshShows() {
+  const p = personRec(); if (!p) return;
+  const stale = (p.shows || []).filter((n) => !showInfo[n] || Date.now() - showInfo[n].at > 60000 || (showInfo[n].pending && Date.now() - showInfo[n].at > 15000));
+  if (!stale.length) return;
+  stale.forEach((n) => { showInfo[n] = { at: Date.now(), pending: true, data: showInfo[n] && showInfo[n].data }; });
+  Promise.all(stale.map((n) => api(`/api/find-show?q=${encodeURIComponent(n)}`).then((d) => { showInfo[n] = { at: Date.now(), data: d }; }).catch(() => { showInfo[n] = { at: Date.now(), data: showInfo[n].data || { now: [], next: [] } }; }))).then(() => { if (tab === 'fav') render(); });
+}
+const fmtWhen = (t) => { const d = new Date(t), now = new Date(); const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); return d.toDateString() === now.toDateString() ? `at ${time}` : `tomorrow at ${time}`; };
+function favHeader() {
+  const people = state.people || [];
+  const chips = `<div class="people"><span class="lbl">Whose favorites</span>
+    <button class="pchip ${!person ? 'on' : ''}" data-person="" type="button">The house</button>
+    ${people.map((p) => `<button class="pchip ${person === p.id ? 'on' : ''}" data-person="${esc(p.id)}" type="button">${esc(p.name)}</button>`).join('')}
+    ${personAdding ? `<span class="inl"><input id="personName" placeholder="Name" maxlength="40" autofocus><button class="btn pri" id="personAddGo" type="button">Add</button><button class="btn" id="personAddCancel" type="button">Cancel</button></span>` : `<button class="pchip add" id="personAddBtn" type="button">+ Add a person</button>`}
+    ${editing && person && personRec() ? `<button class="pchip del" data-person-del="${esc(person)}" type="button">Remove ${esc(personName())}</button>` : ''}
+  </div>`;
+  const p = personRec(); if (!p) return chips;
+  const tiles = (p.shows || []).map((n) => {
+    const info = showInfo[n] && showInfo[n].data; const now = info && info.now[0], next = info && info.next[0];
+    const line = !info ? 'Looking…' : now ? `<span class="lb">On now</span>${esc(now.channel)} · CH ${esc(now.number)}` : next ? `<span class="lb">Next</span>${esc(fmtWhen(next.start))} · ${esc(next.channel)} CH ${esc(next.number)}` : 'Not on your channels today';
+    return `<button class="tile branded showtile ${now ? 'live' : ''}" style="--bc:${autoColor(n)}" data-show="${esc(n)}" type="button">
+      <span class="top">${mono(n)}<span class="name">${esc(n)}</span></span>
+      <span class="meta"><span class="show ${info && !now && !next ? 'tag' : ''}">${line}</span></span>
+      ${editing ? `<span class="fav" data-show-del="${esc(n)}" role="button" aria-label="Remove">✕</span>` : ''}
+    </button>`;
+  }).join('');
+  const add = editing || !(p.shows || []).length ? (showAdding ? `<div class="tile add inl"><input id="showName" placeholder="Show name, e.g. Friends" maxlength="60" autofocus><span><button class="btn pri" id="showAddGo" type="button">Add</button> <button class="btn" id="personAddCancel" type="button">Cancel</button></span></div>` : `<button class="tile add" id="showAddBtn" type="button">+ Find a show for ${esc(p.name)}</button>`) : '';
+  return chips + `<div class="people lbl">${esc(p.name)}'s shows · tap one and the channel it is on comes on</div>` + tiles + add + `<div class="people lbl">${esc(p.name)}'s channels</div>`;
 }
 function statusWord(x) {
   if (x.status === 'no-box') return x.tv ? tvStatusWord(x.tv) : 'Nothing set up yet';
@@ -884,7 +941,32 @@ document.addEventListener('click', (e) => {
     const rep = $('#lineupReplace').checked;
     return fetch(`lineups/${el.dataset.lineup}`).then((r) => r.json()).then((j) => { sheet = null; return applyLineup(j.channels || [], rep).then(render); }).catch((err) => toast(`Could not load that lineup: ${err.message}`));
   }
-  if ((el = btn('[data-fav]'))) { e.stopPropagation(); const c = state.channels[+el.dataset.fav]; c.fav = !c.fav; if (editing) return render(); return saveConfig({ channels: state.channels }); }
+  if ((el = btn('[data-fav]'))) {
+    e.stopPropagation(); const c = state.channels[+el.dataset.fav];
+    if (person) { const p = personRec(); if (p) { const k = norm0(c.name); p.favs = p.favs.some((f) => norm0(f) === k) ? p.favs.filter((f) => norm0(f) !== k) : [...p.favs, c.name]; render(); return saveConfig({ people: state.people }); } }
+    c.fav = !c.fav; if (editing) return render(); return saveConfig({ channels: state.channels });
+  }
+  if ((el = btn('[data-person]'))) { person = el.dataset.person; try { localStorage.setItem('or.person', person); } catch {} return render(); }
+  if (btn('#personAddBtn')) { personAdding = true; return render(); }
+  if (btn('#personAddGo')) {
+    const name = ($('#personName') || {}).value.trim(); if (!name) return toast('Type a name');
+    const people = [...(state.people || []), { id: '', name, favs: [], shows: [] }]; personAdding = false;
+    return saveConfig({ people }).then(() => { const p = (state.people || []).find((x) => x.name === name); if (p) { person = p.id; try { localStorage.setItem('or.person', person); } catch {} render(); } });
+  }
+  if (btn('#personAddCancel')) { personAdding = false; showAdding = false; return render(); }
+  if ((el = btn('[data-person-del]'))) { const people = (state.people || []).filter((p) => p.id !== el.dataset.personDel); if (person === el.dataset.personDel) person = ''; return saveConfig({ people }); }
+  if (btn('#showAddBtn')) { showAdding = true; return render(); }
+  if (btn('#showAddGo')) {
+    const name = ($('#showName') || {}).value.trim(); if (!name) return toast('Type the show\'s name');
+    const p = personRec(); if (!p) return toast('Pick a person first'); p.shows = [...(p.shows || []), name]; showAdding = false; return saveConfig({ people: state.people });
+  }
+  if ((el = btn('[data-show-del]'))) { e.stopPropagation(); const p = personRec(); if (!p) return; p.shows = (p.shows || []).filter((x) => x !== el.dataset.showDel); return saveConfig({ people: state.people }); }
+  if ((el = btn('[data-show]'))) {
+    const info = showInfo[el.dataset.show] && showInfo[el.dataset.show].data; const hit = info && (info.now[0] || info.next[0]);
+    if (!hit) return toast(`${el.dataset.show} is not on any of your channels today`, 4000);
+    if (!info.now[0]) toast(`${el.dataset.show} starts ${fmtWhen(hit.start)} on ${hit.channel}. Putting that channel on.`, 5000);
+    return tune(hit.number);
+  }
   if ((el = btn('[data-del]'))) { commitEdits(); state.channels.splice(+el.dataset.del, 1); return render(); }
   if (btn('#addCh')) { commitEdits(); state.channels.push({ name: '', number: null, groups: [tab === 'all' || tab === 'fav' ? 'entertainment' : tab], fav: tab === 'fav' }); return render(); }
   if ((el = btn('[data-tune]'))) return tune(el.dataset.tune);
