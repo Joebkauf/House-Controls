@@ -696,7 +696,9 @@ function toast(msg, ms = 2200) {
 }
 async function sendKey(key) {
   const b = box(); if (!b) return toast('Add a box first (⚙ Boxes & setup)');
-  try { await api(`/api/box/${b.id}/key`, { key }); }
+  // CH up / down follow the tab on screen: the next movie channel in Movies, the next favorite in Favorites.
+  const within = /^CHANNEL_(UP|DOWN)$/.test(key) ? tabChannels().map((c) => Number(c.number)).filter((n) => n > 0) : undefined;
+  try { await api(`/api/box/${b.id}/key`, within ? { key, within } : { key }); }
   catch (e) { toast(e.message); }
 }
 async function tune(number) {
@@ -739,6 +741,12 @@ function setHTML(el, html) {
   if ((top || left) && Date.now() - lastScrollAt > 400) { el.scrollTop = top; el.scrollLeft = left; }
 }
 let lastScrollAt = 0; document.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { capture: true, passive: true });
+// The channels the current tab shows (none on Apps / Guide / Plugs / Thermostats = the whole wall).
+const CHANNEL_TABS = ['all', 'fav', 'news', 'sports', 'entertainment', 'movies', 'kids'];
+function tabChannels() {
+  if (!CHANNEL_TABS.includes(tab)) return state.channels.map((c, i) => ({ ...c, i }));
+  return state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? isFav(c) : (c.groups || []).includes(tab)));
+}
 function render() {
   const b = box();
   // boxes
@@ -757,7 +765,7 @@ function render() {
   setHTML($('#tabs'), GROUPS.map(([id, label]) => `<button class="tab ${tab === id ? 'on' : ''}" data-tab="${id}" type="button">${label}</button>`).join('')
     + `<span class="sp"></span>${tab === 'apps' ? '' : `${editing ? '<button class="tab" id="importBtn" type="button">Load lineup</button>' : ''}<button class="tab edit ${editing ? 'on' : ''}" id="editBtn" type="button">${editing ? 'Done' : 'Edit'}</button>`}`);
   // grid
-  const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? isFav(c) : (c.groups || []).includes(tab)));
+  const list = tabChannels();
   const live = b && b.lastChannel;
   if (tab === 'house') { renderPlugs(); } else
   if (tab === 'heat') { renderStats(); } else

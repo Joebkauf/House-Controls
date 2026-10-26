@@ -338,13 +338,17 @@ syncRooms();
 // ---------- what a key does in a room ----------------------------------------------
 const TV_KEYS = { VOLUME_UP: 'volumeUp', VOLUME_DOWN: 'volumeDown', MUTE: 'mute', VOLUME_MUTE: 'mute', POWER: 'powerToggle', TV_POWER: 'powerToggle' };
 const NAV_KEYS = /^(DPAD_|BACK$|HOME$|MENU$|EXIT$|ENTER$|INFO$|MEDIA_|CAPTIONS$|SETTINGS$)/;
-async function sendKey(r, name) {
+async function sendKey(r, name, within) {
   const tvAct = TV_KEYS[name];
   if (name === 'ART_MODE') throw err('Art mode is turned off in this app');
   // CH up / down on a Stream box walk the channel wall (next / previous number we know), so the step is
   // visible on the wall and never lands on a channel nobody put there. Without a known channel, the raw key goes.
   if ((name === 'CHANNEL_UP' || name === 'CHANNEL_DOWN') && r.cfg.boxType === 'androidtv' && r.box) {
-    const nums = [...new Set(config.channels.map((c) => Number(c.number)).filter((n) => n > 0))].sort((a, z) => a - z);
+    // The app sends the numbers on the tab being looked at (Movies, Favorites, News…), so CH up / down step
+    // through THAT sort; off a channel tab (Apps, Guide, Plugs) or with nothing sent, the whole wall.
+    const wall = [...new Set(config.channels.map((c) => Number(c.number)).filter((n) => n > 0))].sort((a, z) => a - z);
+    const sort = Array.isArray(within) ? [...new Set(within.map(Number).filter((n) => n > 0))].sort((a, z) => a - z) : [];
+    const nums = sort.length ? sort : wall;
     const up = name === 'CHANNEL_UP';
     if (nums.length) {
       const cur = Number(r.box.lastChannel || 0); const i = nums.indexOf(cur);
@@ -508,7 +512,7 @@ app.post('/api/box/:id/headphone', wrap(async (req, res) => {
   if (req.body.dir === 'up') await tv.headphoneUp(); else if (req.body.dir === 'down') await tv.headphoneDown(); else await tv.setHeadphone(Number(req.body.level));
   broadcast(); return { ok: true, headphone: tv.headphone };
 }));
-app.post('/api/box/:id/key', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await sendKey(r, String(req.body.key || '').toUpperCase().replace(/^KEYCODE_/, '')); return { ok: true }; }));
+app.post('/api/box/:id/key', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await sendKey(r, String(req.body.key || '').toUpperCase().replace(/^KEYCODE_/, ''), req.body.within); return { ok: true }; }));
 app.post('/api/box/:id/channel', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await tuneChannel(r, req.body.number); return { ok: true }; }));
 app.post('/api/box/:id/volume', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await setVolume(r, Number(req.body.level)); return { ok: true, volume: publicRoom(r).volume }; }));
 app.post('/api/box/:id/app', wrap(async (req, res) => { const r = getRoom(req, res); if (!r) return; await openApp(r, String(req.body.app || '')); return { ok: true }; }));
