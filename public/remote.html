@@ -562,7 +562,7 @@ function render() {
   note.hidden = !(tv && b.volumeFrom === 'tv' && (tv.status !== 'ok' || (tv.brand === 'samsung' && !v)));
   note.textContent = tv && tv.status !== 'ok' ? tvStatusWord(tv) : (tv && tv.brand === 'samsung' ? 'Samsung TVs do not report the level; the TV shows it.' : '');
   $('#artBtn').hidden = !(tv && tv.frame);
-  const fx = $('#focus'); fx.hidden = !(b && b.hasBothSides);
+  const fx = $('#focus'); fx.hidden = true; // keys pick their own target: a channel means the box, an app opened on the TV means the TV
   if (b) fx.querySelectorAll('[data-focus]').forEach((k) => k.classList.toggle('on', k.dataset.focus === (b.focus || 'box')));
   $('#volLvl').textContent = v ? (v.muted ? 'Muted' : `${v.level} / ${v.max}`) : (tv && tv.brand === 'samsung' && tv.status === 'ok' ? 'TV' : '–');
   const bar = $('#volBar'); bar.classList.toggle('muted', !!(v && v.muted));

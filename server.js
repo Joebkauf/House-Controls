@@ -263,8 +263,15 @@ async function sendKey(r, name) {
   const tvAct = TV_KEYS[name];
   if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER' || name === 'ART_MODE')) {
     if (!r.tv[tvAct]) throw err(`the ${r.tv.brand} TV cannot do ${name}`);
-    try { await r.tv[tvAct](); } catch (e) { r.tv.error = e.message; broadcast(); throw Object.assign(e, { status: 502 }); }
-    broadcast(); return;
+    try { await r.tv[tvAct](); broadcast(); return; }
+    catch (e) {
+      r.tv.error = e.message; broadcast();
+      // The TV did not take it: try the box (HDMI-CEC usually passes volume to the TV).
+      const viaBox = r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready' && name !== 'ART_MODE';
+      if (!viaBox) throw Object.assign(e, { status: 502 });
+      log(`[${r.cfg.id}] TV refused ${name} (${e.message}); sending to the box instead`);
+      r.box.sendKey(name); return;
+    }
   }
   if (name === 'ART_MODE') throw err('Art mode needs a Samsung Frame set up under ⚙');
   const toTv = r.focus === 'tv' && tvTakesKeys(r);
