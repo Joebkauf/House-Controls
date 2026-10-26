@@ -380,6 +380,7 @@ const app = express();
 app.use(express.json());
 const PAGE = fs.readFileSync(path.join(__dirname, 'public', 'remote.html'), 'utf8');
 app.get('/', (_req, res) => {
+  res.set('Cache-Control', 'no-cache'); // the page must follow the bridge's version, never a phone's cache
   res.type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -490,6 +491,12 @@ function publicIdentify() {
     tvs: [...identify.tvs.values()].map((t) => ({ host: t.host, status: t.status, allowed: !!t.token, room: roomOf(t.host) })),
   };
 }
+// When only one paired, unplaced TV (or box) is on the list, it is this room's: fill it in without asking.
+function autoFillIdentify() {
+  const ready = (kind) => [...identify.boxes.values()].filter((L) => L.status === 'ready' && (L.kind || 'box') === kind);
+  if (!identify.matchedTv) { const tvs = ready('sony-tv'); if (tvs.length === 1) identify.matchedTv = { brand: 'sony', host: tvs[0].host, name: tvs[0].model || '' }; }
+  if (!identify.matched) { const boxes = ready('box'); if (boxes.length === 1) identify.matched = boxes[0].host; }
+}
 function stopIdentify({ keepTvs = false, keepMatches = false } = {}) {
   for (const L of identify.boxes.values()) L.close();
   identify.boxes.clear();
@@ -524,6 +531,7 @@ async function startIdentify() {
   }
   identify.active = true;
   identify.timer = setTimeout(() => stopIdentify(), 10 * 60 * 1000);
+  autoFillIdentify();
   broadcast();
   return publicIdentify();
 }
@@ -550,8 +558,9 @@ app.post('/api/identify/code', wrap(async (req) => {
     // The wrong code just closed every other device's prompt. Ask the still-unpaired ones again, so the box's
     // code is waiting the moment the TV is switched to its input. No one has to tap anything.
     if (!DEMO) setTimeout(() => { for (const L of identify.boxes.values()) if (L.connect && L.status !== 'ready') L.connect({ pair: true }); }, 1500);
+    autoFillIdentify();
     broadcast();
-    return { host: hit.host, kind: hit.kind || 'box', name: hit.model || '' };
+    return { host: hit.host, kind: hit.kind || 'box', name: hit.model || '', matched: identify.matched, matchedTv: identify.matchedTv };
   };
   if (DEMO) { const L = asking[0]; L.status = 'ready'; L.needsCode = false; return take(L); }
   for (const L of asking) { try { L.sendCode(code); } catch {} }

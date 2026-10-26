@@ -161,6 +161,8 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .idpanel .big { font-family: var(--display); font-size: 22px; font-weight: 700; }
 .idlist { display: grid; gap: 4px; font-size: 14px; }
 .idlist .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.idlist button.row.pick { width: 100%; text-align: left; background: var(--tile); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); font: inherit; color: inherit; }
+.idlist button.row.pick .st { color: var(--accent); font-weight: 600; }
 .idlist .row .btn { padding: 6px 10px; font-size: 13px; }
 .idlist .st { color: var(--muted); font-size: 13px; }
 .idlist .st.ok { color: var(--ok); font-weight: 600; }
@@ -726,11 +728,11 @@ function identifyPanel() {
   const head = got.length ? got.join(' and ').replace(/^./, (c) => c.toUpperCase()) : (id.active ? 'Look at the TV in front of you' : 'Done looking');
   return `<div class="idpanel">
     <div class="big">${head}</div>
-    ${got.length ? `<p>Paired and filled in below.${id.matchedTv && !id.matched && id.active ? ' Switch the TV to the Stream box\'s input: the box puts up its own code. Type that too.' : ''}${id.matched && !id.matchedTv && id.active ? ' If this room\'s TV is a Sony, press Home on the TV: its own code is waiting. A Samsung: press Allow on the set and tap its address below.' : ''}</p>` : ''}
+    ${got.length ? `<p>Filled in below${id.matched && id.matchedTv ? ': name the room and tap Add room.' : '.'}${id.matchedTv && !id.matched && id.active ? ' Switch the TV to the Stream box\'s input: the box puts up its own code. Type that too.' : ''}${id.matched && !id.matchedTv && id.active ? ' If this room\'s TV is a Sony, press Home on the TV: its own code is waiting. A Samsung: press Allow on the set and tap its address below.' : ''}</p>` : ''}
     ${id.active ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : (id.boxes.some((b) => b.status !== 'ready') ? ' Waiting for the TVs and boxes to answer…' : ' Everything found is paired: name the room and tap Add room.')}</p>
     <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>This is the one</button></div>` : ''}
     <div class="idlist">
-      ${id.boxes.map((b) => { const used = (id.matched === b.host) || (id.matchedTv && id.matchedTv.host === b.host); return `<div class="row"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${b.status === 'ready' ? 'ok' : ''}">${used ? 'this room ✓' : b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span>${b.status === 'ready' && !used ? `<button class="btn" data-idpick="${esc(b.host)}" type="button">Use here</button>` : ''}</span></div>`; }).join('')}
+      ${id.boxes.map((b) => { const used = (id.matched === b.host) || (id.matchedTv && id.matchedTv.host === b.host); const pick = b.status === 'ready' && !used; return `<${pick ? `button type="button" data-idpick="${esc(b.host)}"` : 'div'} class="row ${pick ? 'pick' : ''}"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${used ? 'this room ✓' : pick ? 'paired · tap to use here' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></${pick ? 'button' : 'div'}>`; }).join('')}
       ${id.tvs.map((t) => `<div class="row"><span>Samsung TV ${esc(t.host)}${t.room ? ` · already in ${esc(t.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${t.allowed ? 'ok' : ''}">${t.allowed ? 'allowed ✓' : t.status === 'needs-allow' ? 'press Allow on the TV' : esc(t.status)}</span><button class="btn" data-idtv="${esc(t.host)}" type="button">This room's TV</button></span></div>`).join('')}
       ${!id.boxes.length && !id.tvs.length ? '<div class="st">Nothing answered. Turn the TVs and boxes on and try again.</div>' : ''}
     </div>
@@ -755,6 +757,12 @@ function renderSheet(force) {
     Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById(k); if (el && !el.value) el.value = v; });
     Object.entries(keepSeg).forEach(([k, v]) => { const b = document.querySelector(`#${k} [data-nbtype="${v}"], #${k} [data-nbbrand="${v}"]`); if (b && !b.classList.contains('on')) b.click(); });
     const box = host.firstElementChild && host.firstElementChild.firstElementChild; if (box && keepScroll) box.scrollTop = keepScroll;
+    const id = state.identify;
+    if (id && sheet === 'setup') {
+      if (id.matched && $('#nbHost') && !$('#nbHost').value) { const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb && !tb.classList.contains('on')) tb.click(); $('#nbHost').value = id.matched; }
+      if (id.matchedTv && $('#nbTvHost') && !$('#nbTvHost').value) { const sb = $(`#nbBrand [data-nbbrand="${id.matchedTv.brand}"]`); if (sb && !sb.classList.contains('on')) sb.click(); $('#nbTvHost').value = id.matchedTv.host; }
+      if ((id.matched || id.matchedTv) && $('#nbName') && !$('#nbName').value) $('#nbName').value = (id.matchedTv && id.matchedTv.name && !/bravia|sony|kd-|xr-/i.test(id.matchedTv.name) ? id.matchedTv.name : '') || `Room ${state.boxes.length + 1}`;
+    }
   };
   setTimeout(restore, 0);
   const pairing = state.boxes.find((x) => x.status === 'pairing' && x.needsCode);
