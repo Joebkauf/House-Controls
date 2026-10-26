@@ -93,7 +93,7 @@ let config = loadConfig();
 // room = { cfg, box: <androidtv link | cable driver | null>, tv: <tv driver | null>, sonyLink: <androidtv link | null>, focus }
 const rooms = new Map();
 const listeners = new Set();
-const identify = { active: false, boxes: new Map(), tvs: new Map(), found: null, matched: null, timer: null }; // the "show every TV its address" session
+const identify = { active: false, boxes: new Map(), tvs: new Map(), found: null, matched: null, matchedTv: null, timer: null }; // the "show every TV its address" session
 function broadcast() {
   const payload = `data: ${JSON.stringify(publicState())}\n\n`;
   for (const res of listeners) res.write(payload);
@@ -224,6 +224,25 @@ function demoTv(cfg) {
   });
   return t;
 }
+// A Sony TV with no Pre-Shared Key: volume, mute and power go over the same Android TV link that opens its
+// apps, so the pairing code the TV shows is the whole setup. Reads the link live, so order of attachment is moot.
+function sonyViaLink(r) {
+  const link = () => r.sonyLink || (r.cfg.boxType === 'androidtv' && r.cfg.host === r.cfg.tv.host ? r.box : null);
+  const key = async (k) => { const L = link(); if (!L || L.status !== 'ready') throw new Error(L && (L.status === 'needs-pairing' || L.status === 'pairing') ? 'Sony TV is not paired yet (Pair Sony TV)' : 'Sony TV not reachable'); L.sendKey(k); await sleep(250); return t; };
+  const t = {
+    brand: 'sony', frame: false, mac: null, model: null, polls: false, viaLink: true,
+    get status() { const L = link(); return !L ? 'unknown' : L.status === 'ready' ? 'ok' : (L.status === 'needs-pairing' || L.status === 'pairing') ? 'needs-pairing' : L.status === 'connecting' ? 'unknown' : 'offline'; },
+    get powered() { const L = link(); return L ? L.powered : null; },
+    get volume() { const L = link(); return L ? L.volume : null; },
+    get error() { const L = link(); return L ? L.lastError : null; }, set error(_v) {},
+    volumeUp: () => key('VOLUME_UP'), volumeDown: () => key('VOLUME_DOWN'), mute: () => key('VOLUME_MUTE'),
+    powerOn: async () => { const L = link(); if (L && L.powered === false) await key('POWER'); return t; },
+    powerOff: async () => { const L = link(); if (L && L.powered !== false) await key('POWER'); return t; },
+    powerToggle: () => key('POWER'),
+    poll: async () => t, close: () => {},
+  };
+  return t;
+}
 function attachTv(r) {
   const cfg = r.cfg.tv;
   const sig = cfg && cfg.brand ? JSON.stringify([cfg.brand, cfg.host, cfg.psk, cfg.port, cfg.plainWs, cfg.infoPort]) : '';
@@ -232,9 +251,9 @@ function attachTv(r) {
     r.tvSig = sig;
     if (sig) {
       if (DEMO) r.tv = demoTv(cfg);
-      else if (cfg.brand === 'sony') r.tv = TV.sony(cfg, broadcast);
+      else if (cfg.brand === 'sony') r.tv = cfg.psk ? TV.sony(cfg, broadcast) : sonyViaLink(r);
       else if (cfg.brand === 'samsung') { if (!cfg.token && readTokens()[cfg.host]) { cfg.token = readTokens()[cfg.host]; saveConfig(config); } r.tv = TV.samsung({ ...cfg, clientName: `House Controls · TV ${cfg.host}` }, broadcast, (token) => { cfg.token = token; saveConfig(config); saveTvToken(cfg.host, token); }); }
-      if (r.tv && !DEMO) { r.tv.poll().catch(() => {}); r.tvPoll = setInterval(() => r.tv && r.tv.poll().catch(() => {}), 15000); }
+      if (r.tv && !DEMO && r.tv.polls !== false) { r.tv.poll().catch(() => {}); r.tvPoll = setInterval(() => r.tv && r.tv.poll().catch(() => {}), 15000); }
     }
   }
   if (r.tv) r.tv.frame = r.tv.frame || !!(cfg && cfg.frame);
@@ -441,7 +460,7 @@ app.post('/api/box/:id/tv/allow', wrap(async (req, res) => {
 
 // Find things on the LAN: Android TV boxes (mDNS), TVs (SSDP), infrared blasters (Broadlink).
 async function discoverAll() {
-  if (DEMO) return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52' }, { name: 'Optimum Stream (2)', host: '192.168.1.53' }], tvs: [{ brand: 'sony', host: '192.168.1.60' }, { brand: 'samsung', host: '192.168.1.61' }, { brand: 'samsung', host: '192.168.1.63' }], blasters: [{ host: '192.168.2.40', model: 'RM4 mini (demo)', mac: 'aa:bb:cc:00:11:22', devType: 20992 }] };
+  if (DEMO) return { found: [{ name: 'Optimum Stream (demo)', host: '192.168.1.52', kind: 'box' }, { name: 'Optimum Stream (2)', host: '192.168.1.53', kind: 'box' }, { name: 'BRAVIA 4K VH2', host: '192.168.1.60', kind: 'sony-tv' }], tvs: [{ brand: 'sony', host: '192.168.1.60' }, { brand: 'samsung', host: '192.168.1.61' }, { brand: 'samsung', host: '192.168.1.63' }], blasters: [{ host: '192.168.2.40', model: 'RM4 mini (demo)', mac: 'aa:bb:cc:00:11:22', devType: 20992 }] };
   const { Bonjour } = require('bonjour-service');
   const bonjour = new Bonjour();
   const found = new Map();
@@ -451,6 +470,9 @@ async function discoverAll() {
   });
   const [tvs, blasters] = await Promise.all([TV.ssdpSearch(3000), CABLE.discoverBlasters(), sleep(3000)]);
   browser.stop(); bonjour.destroy();
+  // A Sony TV is itself an Android TV and answers the same pairing call as a box; tell them apart.
+  const sonyHosts = new Set(tvs.filter((t) => t.brand === 'sony').map((t) => t.host));
+  for (const f of found.values()) f.kind = sonyHosts.has(f.host) || /bravia|sony/i.test(f.name || '') ? 'sony-tv' : 'box';
   return { found: [...found.values()], tvs, blasters };
 }
 app.get('/api/discover', wrap(() => discoverAll()));
@@ -461,10 +483,10 @@ app.get('/api/discover', wrap(() => discoverAll()));
 // accepts it is that room's box, already paired.
 const roomOf = (host) => (config.boxes.find((b) => b.host === host || (b.tv && b.tv.host === host)) || {}).name || null;
 function publicIdentify() {
-  if (!identify.active && !identify.matched) return null;
+  if (!identify.active && !identify.matched && !identify.matchedTv) return null;
   return {
-    active: identify.active, matched: identify.matched,
-    boxes: [...identify.boxes.values()].map((L) => ({ host: L.host, status: L.status, needsCode: L.needsCode, error: L.lastError, room: roomOf(L.host) })),
+    active: identify.active, matched: identify.matched, matchedTv: identify.matchedTv,
+    boxes: [...identify.boxes.values()].map((L) => ({ host: L.host, kind: L.kind || 'box', name: L.model || '', status: L.status, needsCode: L.needsCode, error: L.lastError, room: roomOf(L.host) })),
     tvs: [...identify.tvs.values()].map((t) => ({ host: t.host, status: t.status, allowed: !!t.token, room: roomOf(t.host) })),
   };
 }
@@ -477,10 +499,11 @@ function stopIdentify({ keepTvs = false } = {}) {
   broadcast();
 }
 async function startIdentify() {
-  stopIdentify(); identify.matched = null;
+  stopIdentify(); identify.matched = null; identify.matchedTv = null;
   const d = await discoverAll(); identify.found = d;
   for (const f of d.found) {
-    const L = androidLink(`find-${f.host}`, f.host, `box ${f.host}`, `House Controls · box ${f.host}`);
+    const L = androidLink(`find-${f.host}`, f.host, `${f.kind === 'sony-tv' ? 'Sony TV' : 'box'} ${f.host}`, `House Controls · ${f.kind === 'sony-tv' ? 'TV' : 'box'} ${f.host}`);
+    L.kind = f.kind; L.model = f.name || '';
     identify.boxes.set(f.host, L);
     if (DEMO) { L.status = 'pairing'; L.needsCode = true; } else L.connect({ pair: true });
   }
@@ -502,12 +525,21 @@ app.post('/api/identify/code', wrap(async (req) => {
   if (!code) throw err('type the code on the TV');
   const asking = [...identify.boxes.values()].filter((L) => L.needsCode);
   if (!asking.length) throw err('no box is showing a code right now; tap "Show every TV its address" again', 409);
-  if (DEMO) { const L = asking[0]; L.status = 'ready'; L.needsCode = false; identify.matched = L.host; stopIdentify({ keepTvs: true }); return { host: L.host }; }
+  // Whichever device accepts the code is the one in front of the person. A Sony TV fills the TV slot, a box the
+  // box slot; the others keep showing their codes so the second device in the room can be typed next.
+  const take = (hit) => {
+    hit.close(); identify.boxes.delete(hit.host);
+    if (hit.kind === 'sony-tv') identify.matchedTv = { brand: 'sony', host: hit.host, name: hit.model || '' }; else identify.matched = hit.host;
+    if (![...identify.boxes.values()].some((L) => L.needsCode || L.status === 'pairing' || L.status === 'connecting')) stopIdentify({ keepTvs: true });
+    broadcast();
+    return { host: hit.host, kind: hit.kind || 'box', name: hit.model || '' };
+  };
+  if (DEMO) { const L = asking[0]; L.status = 'ready'; L.needsCode = false; return take(L); }
   for (const L of asking) { try { L.sendCode(code); } catch {} }
   const until = Date.now() + 8000;
   while (Date.now() < until) {
     const hit = asking.find((L) => L.status === 'ready');
-    if (hit) { identify.matched = hit.host; stopIdentify({ keepTvs: true }); return { host: hit.host }; }
+    if (hit) return take(hit);
     await sleep(250);
   }
   throw err('that code did not match any box. Read it again from the TV in front of you and tap "Show every TV its address" once more', 409);
@@ -533,7 +565,9 @@ app.post('/api/config', wrap(async (req) => {
   if (Array.isArray(body.channels)) config.channels = body.channels;
   if (Array.isArray(body.boxes)) {
     config.boxes = body.boxes.filter((b) => b && (b.host || b.name)).map((b) => {
-      const id = b.id || slug(b.name || b.host);
+      // a new room never takes over an existing room's id ("Den" next to "Den (TV only)" both slug to den)
+      let id = b.id || slug(b.name || b.host);
+      if (!b.id) { const base = id; let n = 2; while (config.boxes.some((c) => c.id === id) || (body.boxes || []).some((o) => o !== b && o.id === id)) id = `${base}-${n++}`; }
       const prev = config.boxes.find((c) => c.id === id) || {};
       const host = String(b.host || '').trim();
       const boxType = b.boxType || (prev.boxType && prev.host === host ? prev.boxType : (host ? 'androidtv' : 'none'));

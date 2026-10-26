@@ -658,7 +658,7 @@ function statusWord(x) {
 }
 function tvStatusWord(tv) {
   return { ok: tv.powered === false ? 'TV off' : 'TV connected', 'needs-allow': 'Press Allow on the TV', 'needs-psk': 'TV refused the Pre-Shared Key',
-    denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…' }[tv.status] || tv.status;
+    denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…', 'needs-pairing': 'Pair the TV: tap Pair Sony TV' }[tv.status] || tv.status;
 }
 function nowText(b) {
   if (b.boxType === 'directv' || b.boxType === 'ir') {
@@ -702,12 +702,15 @@ function identifyPanel() {
     <div><button class="btn pri" id="identifyStart" type="button">Show every TV its address</button></div>
   </div>`;
   const asking = id.boxes.filter((b) => b.needsCode);
+  const got = [id.matchedTv ? `this room's TV is the Sony at ${esc(id.matchedTv.host)}` : '', id.matched ? `this room's box is ${esc(id.matched)}` : ''].filter(Boolean);
+  const head = got.length ? got.join(' and ').replace(/^./, (c) => c.toUpperCase()) : (id.active ? 'Look at the TV in front of you' : 'Done looking');
   return `<div class="idpanel">
-    <div class="big">${id.matched ? `This room's box is ${esc(id.matched)}` : (id.active ? 'Look at the TV in front of you' : 'Done looking')}</div>
-    ${id.matched ? `<p>It is paired and filled in below. Now the TV: on a Samsung, press <b>Allow</b> on the set and tap its address here; the Allow box on the TV names it.</p>` : (id.active ? `<p>Each box's TV shows a six-character code${asking.length ? '' : ' (waiting for the boxes to answer…)'}. Type the one you see:</p>
-    <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>Use this box</button></div>` : '')}
+    <div class="big">${head}</div>
+    ${got.length ? `<p>Paired and filled in below.${id.matchedTv && !id.matched && id.active ? ' Switch the TV to the Stream box\'s input: the box puts up its own code. Type that too.' : ''}${id.matched && !id.matchedTv && id.active ? ' If this room\'s TV is a Sony, press Home on the TV: its own code is waiting. A Samsung: press Allow on the set and tap its address below.' : ''}</p>` : ''}
+    ${id.active ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : ' Waiting for the TVs and boxes to answer…'}</p>
+    <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>This is the one</button></div>` : ''}
     <div class="idlist">
-      ${id.boxes.map((b) => `<div class="row"><span>Box ${esc(b.host)}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></div>`).join('')}
+      ${id.boxes.map((b) => `<div class="row"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></div>`).join('')}
       ${id.tvs.map((t) => `<div class="row"><span>Samsung TV ${esc(t.host)}${t.room ? ` · already in ${esc(t.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${t.allowed ? 'ok' : ''}">${t.allowed ? 'allowed ✓' : t.status === 'needs-allow' ? 'press Allow on the TV' : esc(t.status)}</span><button class="btn" data-idtv="${esc(t.host)}" type="button">This room's TV</button></span></div>`).join('')}
       ${!id.boxes.length && !id.tvs.length ? '<div class="st">Nothing answered. Turn the TVs and boxes on and try again.</div>' : ''}
     </div>
@@ -799,7 +802,7 @@ function renderSheet() {
     <div><span class="lbl">Cable box</span><br><div class="seg wrap" id="nbType">${[['none','None (TV only)'],['androidtv','Optimum Stream / Android TV box'],['directv','DirecTV Genie'],['ir','Other box, via infrared blaster']].map(([v,l]) => `<button type="button" data-nbtype="${v}" class="${v==='androidtv'?'on':''}">${l}</button>`).join('')}</div></div>
     <input id="nbHost" placeholder="Box IP (192.168.1.50)" inputmode="decimal">
     <div class="seg" id="nbBrand">${[['','No TV yet'],['sony','Sony TV'],['samsung','Samsung TV']].map(([v,l]) => `<button type="button" data-nbbrand="${v}" class="${v===''?'on':''}">${l}</button>`).join('')}</div>
-    <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbTvHost" placeholder="TV IP (192.168.1.60)" inputmode="decimal"><input id="nbPsk" placeholder="Sony only: Pre-Shared Key"></div>
+    <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="nbTvHost" placeholder="TV IP (192.168.1.60)" inputmode="decimal"><input id="nbPsk" placeholder="Sony: Pre-Shared Key (optional)"></div>
     <label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="nbFrame"> Samsung The Frame</label>
     <div class="row2"><span></span><button class="btn pri" id="nbAdd" type="button">Add room</button></div>
     <p>Any cable box works: an Android TV box (Optimum Stream and most newer boxes) pairs with a code on the screen; a DirecTV Genie talks over the network once "External Device" is allowed in its settings; anything else gets a $25 Broadlink RM4 mini infrared blaster next to it, and you teach it the box's remote under Learn keys. For an infrared box, the IP is the blaster's. A room with no box at all is fine: the TV takes the whole remote.</p>
@@ -891,20 +894,31 @@ document.addEventListener('click', (e) => {
     const code = ($('#idCode') || {}).value || ''; idCodeDraft = '';
     toast('Checking that code against every box…', 3000);
     return api('/api/identify/code', { code }).then((r) => {
-      const name = ($('#nbName') || {}).value || '';
+      const keep = { name: ($('#nbName') || {}).value || '', host: ($('#nbHost') || {}).value || '', tvHost: ($('#nbTvHost') || {}).value || '' };
       renderSheet();
-      if ($('#nbName')) $('#nbName').value = name;
-      const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb) tb.click();
-      if ($('#nbHost')) $('#nbHost').value = r.host;
-      toast(`Box ${r.host} is this room's box, paired. Now name the room and pick its TV.`, 5000);
+      setTimeout(() => { // after renderSheet's own restore pass, which would otherwise put the old choices back
+      if ($('#nbName')) $('#nbName').value = keep.name;
+      if (r.kind === 'sony-tv') {
+        const sb = $('#nbBrand [data-nbbrand="sony"]'); if (sb) sb.click();
+        if ($('#nbTvHost')) $('#nbTvHost').value = r.host;
+        if ($('#nbHost')) $('#nbHost').value = keep.host;
+        toast(`That was the Sony TV at ${r.host}: paired and filled in. Now the box: switch the TV to the Stream box and type its code too, or add the room now if there is no box.`, 7000);
+      } else {
+        const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb) tb.click();
+        if ($('#nbHost')) $('#nbHost').value = r.host;
+        if ($('#nbTvHost')) $('#nbTvHost').value = keep.tvHost;
+        toast(`That was the Stream box at ${r.host}: paired and filled in. Now the TV, then name the room and tap Add room.`, 6000);
+      }
+      }, 20);
     }).catch((err) => toast(err.message, 6000));
   }
   if ((el = btn('[data-idtv]'))) {
-    const name = ($('#nbName') || {}).value || '', host = ($('#nbHost') || {}).value || '';
-    const sb = $('#nbBrand [data-nbbrand="samsung"]'); if (sb) sb.click();
-    if ($('#nbTvHost')) $('#nbTvHost').value = el.dataset.idtv;
-    if ($('#nbName')) $('#nbName').value = name; if ($('#nbHost')) $('#nbHost').value = host;
-    toast(`TV ${el.dataset.idtv} filled in. Name the room and tap Add room.`, 4000);
+    const tvHost = el.dataset.idtv;
+    setTimeout(() => {
+      const sb = $('#nbBrand [data-nbbrand="samsung"]'); if (sb) sb.click();
+      if ($('#nbTvHost')) $('#nbTvHost').value = tvHost;
+    }, 20);
+    toast(`Samsung TV ${tvHost} filled in. Name the room and tap Add room.`, 4000);
     return;
   }
   if ((el = btn('[data-nbtype]'))) {
