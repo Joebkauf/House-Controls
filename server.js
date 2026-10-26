@@ -19,6 +19,7 @@ const CABLE = require('./cable');
 const GUIDE = require('./guide');
 const TUYA_MOD = require('./tuya');
 const APRILAIRE = require('./aprilaire');
+const SD_MOD = require('./sd');
 // The night timer's window, 10:00 PM – 5:30 AM house time (used at boot by publicState, so it lives up here).
 const SLEEP_TZ = process.env.GUIDE_TZ || 'America/New_York';
 const sleepFmt = new Intl.DateTimeFormat('en-US', { timeZone: SLEEP_TZ, hour: 'numeric', minute: 'numeric', hour12: false });
@@ -110,6 +111,14 @@ const demoStats = [
   { id: 'living-level', name: 'Living Level', host: '192.168.1.42', port: 8000, status: 'ok', error: null, temp: 73, humidity: 43, outdoorTemp: 48, heat: 72, cool: 76, scale: 'F', deg: '°', mode: 2, modeName: 'Heat', fan: 2, fanName: 'Auto', running: 'Idle', heating: 0, cooling: 0, fanOn: false, hold: 0, holdName: 'Following the schedule', holdEnd: null, synced: true },
 ];
 const STATS = APRILAIRE.create({ log, onChange: () => broadcast() });
+// TV listings: Schedules Direct when signed in (the full grid), else the free TVmaze feed (first-run episodes only).
+const SD = SD_MOD.create({ dataDir: DATA_DIR, log, onChange: () => pushWhatsOn() });
+const LISTINGS = {
+  nowOn: (ch) => (SD.ready() ? SD.nowOn(ch) : GUIDE.nowOn(ch)),
+  schedule: (ch, a, b) => (SD.ready() ? SD.schedule(ch, a, b) : GUIDE.schedule(ch, a, b)),
+  findShow: (ch, q) => (SD.ready() ? SD.findShow(ch, q) : GUIDE.findShow(ch, q)),
+  status: () => ({ source: SD.ready() ? 'sd' : 'tvmaze', ...GUIDE.status(), sd: SD.status() }),
+};
 const statList = () => (DEMO ? demoStats : STATS.list());
 
 // ---------- rooms ----------------------------------------------------------
@@ -153,7 +162,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, sleepAllowed: sleepAllowed(), plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status(), thermostats: statList(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
+  return { demo: DEMO, sleepAllowed: sleepAllowed(), plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status(), thermostats: statList(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: LISTINGS.nowOn(config.channels), guide: LISTINGS.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -442,8 +451,8 @@ const wrap = (fn) => async (req, res) => {
 };
 
 app.get('/api/state', (_req, res) => res.json(publicState()));
-app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(GUIDE.schedule(config.channels, from, from + hours * 3600000)); });
-app.get('/api/find-show', (req, res) => res.json(GUIDE.findShow(config.channels, String(req.query.q || ''))));
+app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(LISTINGS.schedule(config.channels, from, from + hours * 3600000)); });
+app.get('/api/find-show', (req, res) => res.json(LISTINGS.findShow(config.channels, String(req.query.q || ''))));
 app.get('/api/log', (_req, res) => res.json({ lines: LOG_RING.slice(-120), pushesThisMinute: broadcastCount, rooms: [...rooms.values()].map((r) => ({ id: r.cfg.id, box: r.box ? r.box.status : null, boxErr: r.box && r.box.lastError || null, tv: r.tv ? r.tv.status : null, link: r.sonyLink ? r.sonyLink.status : null, linkErr: r.sonyLink && r.sonyLink.lastError || null })) }));
 // ---------- smart plugs, switches and lights (Tuya Smart / Smart Life) ----------
 app.get('/api/plugs', (_req, res) => res.json({ plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status() }));
@@ -478,7 +487,28 @@ app.post('/api/thermostats/:id', wrap(async (req) => {
 }));
 app.get('/api/tuya', (_req, res) => res.json({ ...TUYA.status(), regions: TUYA.REGIONS }));
 app.post('/api/tuya', wrap(async (req) => { await TUYA.save(req.body || {}); const st = TUYA.status(); if (st.error) throw err(`Saved, but Tuya answered: ${st.error}`, 502); return { ok: true, ...st }; }));
-app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
+app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: LISTINGS.nowOn(config.channels), guide: LISTINGS.status() }));
+// ---------- Schedules Direct sign-in (the setup sheet's TV listings card) ----------
+app.get('/api/sd', (_req, res) => res.json(SD.status()));
+app.post('/api/sd/signin', wrap(async (req) => { const b = req.body || {}; if (!b.username || !b.password) throw err('username and password, please', 400); const r = await SD.signIn(b); if (r.lineup) SD.refresh(true).catch(() => {}); return { ...r, status: SD.status() }; }));
+app.get('/api/sd/lineups', wrap(async (req) => ({ lineups: await SD.headends(req.query.zip || '07656') })));
+app.post('/api/sd/lineup', wrap(async (req) => { await SD.useLineup(String((req.body || {}).lineup || ''), String((req.body || {}).name || '').slice(0, 80)); return SD.status(); }));
+app.post('/api/sd/refresh', wrap(async () => { await SD.refresh(true); return SD.status(); }));
+app.post('/api/sd/forget', wrap(async () => { SD.forget(); return SD.status(); }));
+app.post('/api/sd/forget-lineup', wrap(async () => { SD.forgetLineup(); return SD.status(); }));
+app.get('/api/sd/lineup-channels', (_req, res) => res.json({ channels: SD.lineupChannels() }));
+// Compare the wall's channel numbers with the lineup; apply=true rewrites the ones that differ (names stay).
+app.post('/api/sd/check-numbers', wrap(async (req) => {
+  if (!SD.ready()) throw err('the listings are not loaded yet', 409);
+  const report = SD.checkNumbers(config.channels, GUIDE.ALIASES);
+  const changes = report.filter((r) => r.found && !r.same && r.lineupNumber);
+  const unknown = report.filter((r) => !r.found);
+  if ((req.body || {}).apply && changes.length) {
+    for (const ch of changes) { const c = config.channels.find((x) => x.name === ch.name); if (c) c.number = ch.lineupNumber; }
+    saveConfig(config); broadcast();
+  }
+  return { checked: report.length, changes, unknown: unknown.map((u) => u.name), applied: !!(req.body || {}).apply };
+}));
 app.get('/api/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
@@ -741,8 +771,8 @@ app.post('/api/config', wrap(async (req) => {
 
 // What's on: titles roll over on their own; push a fresh state whenever the wall would read differently.
 let lastWhatsOn = '';
-const pushWhatsOn = () => { const now = JSON.stringify(GUIDE.nowOn(config.channels)); if (now !== lastWhatsOn) { lastWhatsOn = now; broadcast(); } };
+const pushWhatsOn = () => { const now = JSON.stringify([LISTINGS.nowOn(config.channels), SD.status().airings, SD.status().error, SD.status().busy]); if (now !== lastWhatsOn) { lastWhatsOn = now; broadcast(); } };
 GUIDE.start(log, pushWhatsOn);
-if (!DEMO) { TUYA.start(); STATS.setList(config.thermostats || []); }
+if (!DEMO) { TUYA.start(); STATS.setList(config.thermostats || []); SD.start(); }
 setInterval(pushWhatsOn, 60000).unref();
 app.listen(PORT, () => log(`Optimum Remote bridge on http://0.0.0.0:${PORT}${DEMO ? '  (DEMO mode)' : ''}`));

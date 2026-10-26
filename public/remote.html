@@ -553,6 +553,7 @@ function applyState(s) {
   if (!state.boxes.find((b) => b.id === current)) current = state.boxes[0] ? state.boxes[0].id : null;
   render();
 }
+async function refreshState() { try { applyState(await api('/api/state')); } catch {} setTimeout(async () => { try { applyState(await api('/api/state')); renderSheet(); } catch {} }, 700); }
 async function boot() {
   try {
     const s = await api('/api/state');
@@ -620,6 +621,7 @@ function demoState() {
 }
 function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
+  if (path.startsWith('/api/sd')) return { configured: false };
   if (path === '/api/thermostats/scan') return { found: [{ host: '192.168.1.43', name: 'Gym', mac: 'b4:e6:2d:10:20:30' }], already: (state.thermostats || []).map((t) => ({ host: t.host, name: t.name, known: true })), networks: ['192.168.1.x'] };
   if (path.startsWith('/api/thermostats/')) {
     const t = (state.thermostats || []).find((x) => x.id === path.split('/').pop()); if (!t) throw new Error('unknown thermostat');
@@ -967,7 +969,7 @@ function favHeader() {
   const tiles = (p.shows || []).map((n) => {
     const info = showInfo[n] && showInfo[n].data; const now = info && info.now[0], next = info && info.next[0];
     const as = (h) => (h && norm0(h.title) !== norm0(n) ? ` · as “${esc(h.title)}”` : '');
-    const line = !info ? 'Looking…' : now ? `<span class="lb">On now</span>${esc(now.channel)} · CH ${esc(now.number)}${as(now)}` : next ? `<span class="lb">Next</span>${esc(fmtWhen(next.start))} · ${esc(next.channel)} CH ${esc(next.number)}${as(next)}` : 'Not on your channels today';
+    const line = !info ? 'Looking…' : now ? `<span class="lb">On now</span>${esc(now.channel)} · CH ${esc(now.number)}${as(now)}` : next ? `<span class="lb">Next</span>${esc(fmtWhen(next.start))} · ${esc(next.channel)} CH ${esc(next.number)}${as(next)}` : (state.guide && state.guide.source === 'sd' ? 'Not on in the next few days' : 'Not in the free listings (new episodes only) · add Schedules Direct in ⚙ setup');
     return `<button class="tile branded showtile ${now ? 'live' : ''}" style="--bc:${autoColor(n)}" data-show="${esc(n)}" type="button">
       <span class="top">${mono(n)}<span class="name">${esc(n)}</span></span>
       <span class="meta"><span class="show ${info && !now && !next ? 'tag' : ''}">${line}</span></span>
@@ -1068,18 +1070,18 @@ function identifyPanel() {
   </div>`;
 }
 const pushLog = []; // times of the state pushes in the last minute
-let sheetSig = '', sheetPending = false;
+let sheetSig = '', sheetPending = false, sdLineups = null, sdNote = '';
 function renderSheet(force) {
   const host = $('#sheetHost');
   if (sheet === 'setup' && !force) {
     // Only redraw when something the sheet shows has changed, and never while a box on it is being typed in.
-    const sig = JSON.stringify([tvEdit, editing, state.identify, state.version, state.lineup, state.tuya, (state.thermostats || []).map((t) => [t.id, t.name, t.host, t.status, t.error, t.temp]), standalone, state.boxes.map((b) => [b.id, b.name, b.host, b.boxType, b.status, b.needsCode, b.lastError, b.tv && [b.tv.brand, b.tv.host, b.tv.status, b.tv.linkStatus, b.tv.linkNeedsCode, b.tv.model, b.tv.error, b.tv.frame]])]);
+    const sig = JSON.stringify([tvEdit, editing, state.identify, state.version, state.lineup, state.tuya, state.guide && state.guide.sd, sdLineups, sdNote, (state.thermostats || []).map((t) => [t.id, t.name, t.host, t.status, t.error, t.temp]), standalone, state.boxes.map((b) => [b.id, b.name, b.host, b.boxType, b.status, b.needsCode, b.lastError, b.tv && [b.tv.brand, b.tv.host, b.tv.status, b.tv.linkStatus, b.tv.linkNeedsCode, b.tv.model, b.tv.error, b.tv.frame]])]);
     if (sig === sheetSig && host.children.length) return;
     const typing = document.activeElement && host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
     if (typing) { if (!sheetPending) { sheetPending = true; document.activeElement.addEventListener('blur', () => { sheetPending = false; setTimeout(() => renderSheet(), 50); }, { once: true }); } return; }
     sheetSig = sig;
   }
-  const keep = {}; ['nbName', 'nbHost', 'nbTvHost', 'nbPsk', 'tvHost', 'tvPsk', 'pairCode', 'tuyaId', 'tuyaSecret'].forEach((k) => { const el = document.getElementById(k); if (el) keep[k] = el.value; });
+  const keep = {}; ['nbName', 'nbHost', 'nbTvHost', 'nbPsk', 'tvHost', 'tvPsk', 'pairCode', 'tuyaId', 'tuyaSecret', 'sdUser', 'sdPass', 'sdZip'].forEach((k) => { const el = document.getElementById(k); if (el) keep[k] = el.value; });
   const keepSeg = {}; ['nbType', 'nbBrand'].forEach((k) => { const on = document.querySelector(`#${k} .on`); if (on) keepSeg[k] = on.dataset.nbtype || on.dataset.nbbrand; });
   const keepScroll = host.firstElementChild && host.firstElementChild.firstElementChild ? host.firstElementChild.firstElementChild.scrollTop : 0;
   const restore = () => {
@@ -1194,6 +1196,19 @@ function renderSheet(force) {
       <div class="row2"><button class="btn" id="statScan" type="button">Find thermostats on the Wi-Fi</button><button class="btn pri" id="statSave" type="button">Save thermostats</button></div>
       <div id="statScanOut" class="lbl"></div>
     </div>
+    <div class="idpanel" id="sdCard">
+      <div class="big">TV listings</div>
+      ${(() => { const sd = (state.guide && state.guide.sd) || {}; const when = sd.through ? new Date(sd.through).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) : '';
+        if (!sd.configured) return `<p>The guide, "On now" and the show finder run on a free feed that lists first-run episodes only, so reruns and movies are missing. Schedules Direct (schedulesdirect.org, $35 a year, 7-day trial) is the full grid for the real Optimum lineup. Open the account there, then sign in here.</p>
+          <div class="formrow" style="grid-template-columns:1fr 1fr auto"><input id="sdUser" placeholder="Schedules Direct username" autocomplete="off"><input id="sdPass" type="password" placeholder="Password" autocomplete="off"><button class="btn pri" id="sdSignin" type="button">Sign in</button></div>`;
+        if (!sd.lineup) return `<p>Signed in as <b>${esc(sd.username)}</b>. Now pick the lineup: the cable company and town the box is on.</p>
+          <div class="formrow" style="grid-template-columns:1fr auto auto"><input id="sdZip" placeholder="Zip code" value="07656" inputmode="numeric" autocomplete="off"><button class="btn" id="sdFind" type="button">Find lineups</button><button class="btn danger" id="sdForget" type="button">Sign out</button></div>
+          ${sdLineups ? `<div class="idlist">${sdLineups.length ? sdLineups.map((l) => `<div class="row pick"><span>${esc(l.name)} <span class="st">${esc(l.transport || '')}</span></span><button class="btn pri" type="button" data-sdlineup="${esc(l.id)}" data-sdname="${esc(l.name)}">Use this one</button></div>`).join('') : '<div class="row">No lineups for that zip.</div>'}</div>` : ''}`;
+        return `<p>Signed in as <b>${esc(sd.username)}</b> · lineup <b>${esc(sd.lineupName || sd.lineup)}</b>${sd.stations ? ` · ${sd.stations} channels` : ''}${when ? ` · listings through ${when}` : ''}${sd.busy ? ' · loading…' : ''}${sd.error ? ` · <b>${esc(sd.error)}</b>` : ''}</p>
+          <div class="row2"><button class="btn" id="sdFix" type="button">Check the wall's numbers against the lineup</button><button class="btn" id="sdRefresh" type="button">Refresh listings now</button></div>
+          <div class="row2"><button class="btn" id="sdLineupChange" type="button">Change lineup</button><button class="btn danger" id="sdForget" type="button">Sign out</button></div>
+          ${sdNote ? `<div class="lbl" style="text-transform:none;letter-spacing:0;font-size:13px">${sdNote}</div>` : ''}`; })()}
+    </div>
     <div><button class="btn" id="showLog" type="button">Bridge log</button> <span class="lbl">What the bridge has been doing: connections dropping, errors, timers. Send a screenshot of this when something misbehaves.</span></div>
     <pre class="log" id="bridgeLog" hidden></pre>
     <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : `Running version ${esc(state.version || '?')} · ${pushLog.length} updates in the last minute${state.lineup ? ` · lineup ${esc(state.lineup.replace('.json', ''))}` : ''}. Pulls the newest version and restarts (about a minute).`}</span></div>
@@ -1301,6 +1316,36 @@ document.addEventListener('click', (e) => {
   }
   if ((el = btn('[data-allow]'))) { toast('Look at the TV and press Allow'); return api(`/api/box/${el.dataset.allow}/tv/allow`).catch((err) => toast(err.message)); }
   if (btn('#closeSheet')) { sheet = null; return render(); }
+  if (btn('#sdSignin')) {
+    const body = { username: $('#sdUser').value.trim(), password: $('#sdPass').value };
+    if (!body.username || !body.password) return toast('The Schedules Direct username and password, please');
+    toast('Signing in…', 3000);
+    return api('/api/sd/signin', body).then((r) => { toast(r.lineup ? 'Signed in; loading the listings' : 'Signed in. Now pick the lineup.', 5000); sdLineups = null; return refreshState(); }).then(() => renderSheet(true)).catch((err) => toast(err.message, 8000));
+  }
+  if (btn('#sdFind')) {
+    toast('Asking Schedules Direct…', 3000);
+    return api(`/api/sd/lineups?zip=${encodeURIComponent($('#sdZip').value.trim() || '07656')}`).then((r) => { sdLineups = r.lineups || []; renderSheet(true); }).catch((err) => toast(err.message, 8000));
+  }
+  if ((el = btn('[data-sdlineup]'))) {
+    el.disabled = true; el.textContent = 'Loading…'; toast('Loading the listings; the first time takes a minute', 6000);
+    return api('/api/sd/lineup', { lineup: el.dataset.sdlineup, name: el.dataset.sdname }).then(() => { sdLineups = null; return refreshState(); }).then(() => { renderSheet(true); toast('Listings loaded', 4000); }).catch((err) => { toast(err.message, 8000); renderSheet(true); });
+  }
+  if (btn('#sdLineupChange')) { return api('/api/sd/forget-lineup').catch(() => null).then(() => { sdLineups = null; return refreshState(); }).then(() => renderSheet(true)); }
+  if (btn('#sdRefresh')) { toast('Refreshing the listings…', 4000); return api('/api/sd/refresh').then(() => refreshState()).then(() => { renderSheet(true); toast('Listings refreshed'); }).catch((err) => toast(err.message, 8000)); }
+  if (btn('#sdForget')) { return kmgConfirmLite('Sign out of Schedules Direct on the bridge? The guide goes back to the free feed.').then((ok) => { if (!ok) return; return api('/api/sd/forget').then(() => refreshState()).then(() => { sdLineups = null; renderSheet(true); }).catch((err) => toast(err.message, 8000)); }); }
+  if (btn('#sdFix')) {
+    sdNote = 'Checking…'; renderSheet(true);
+    return api('/api/sd/check-numbers', {}).then((r) => {
+      const unknown = r.unknown.length ? ` · ${r.unknown.length} not in the lineup${r.unknown.length <= 12 ? `: ${esc(r.unknown.join(', '))}` : ''}` : '';
+      sdNote = !r.changes.length ? `All ${r.checked} channels on the wall match the lineup${unknown}`
+        : `${r.changes.length} of ${r.checked} differ: ${r.changes.slice(0, 12).map((c) => `${esc(c.name)} ${esc(c.number || '—')}→${c.lineupNumber}`).join(', ')}${r.changes.length > 12 ? '…' : ''}${unknown} <button class="btn pri" type="button" id="sdFixApply">Fix the ${r.changes.length} numbers</button>`;
+      renderSheet(true);
+    }).catch((err) => { sdNote = esc(err.message); renderSheet(true); });
+  }
+  if (btn('#sdFixApply')) {
+    sdNote = 'Fixing…'; renderSheet(true);
+    return api('/api/sd/check-numbers', { apply: true }).then((r) => { sdNote = `Fixed ${r.changes.length} channel numbers from the lineup`; renderSheet(true); toast(`${r.changes.length} channel numbers fixed`, 5000); }).catch((err) => { sdNote = esc(err.message); renderSheet(true); });
+  }
   if (btn('#tuyaSave')) {
     const body = { accessId: $('#tuyaId').value, secret: $('#tuyaSecret').value, region: $('#tuyaRegion').value };
     if (!body.accessId || !body.secret) return toast('Paste the Access ID and the Access Secret from iot.tuya.com');

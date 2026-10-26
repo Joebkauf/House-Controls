@@ -129,4 +129,4 @@ function findShow(channels, q, at = Date.now()) {
   return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, 6) };
 }
 
-module.exports = { start, refresh, nowOn, findShow, schedule, norm, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };
+module.exports = { start, refresh, nowOn, findShow, schedule, norm, ALIASES, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };

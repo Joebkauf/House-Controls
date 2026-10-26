@@ -215,3 +215,14 @@ answering on port 8000 is asked for its name), add the ones it finds, Save. Give
 in the router (a DHCP reservation) so it never moves. A thermostat takes one automation connection at a time, so
 only one bridge may be set up for it. The socket goes quiet after a while; the bridge reconnects every hour on
 purpose and after any drop.
+
+## TV listings (Schedules Direct)
+
+Out of the box the guide, the "On now" line on the tiles and the show finder run on TVmaze's free feed, which
+lists **first-run episodes only**: reruns and movies are missing, so at 11 PM the guide shows two channels.
+**Schedules Direct** (schedulesdirect.org, about $35 a year, 7-day trial) is the full grid for the real Optimum
+lineup. ⚙ Boxes & setup → **TV listings**: sign in, Find lineups for the zip, pick the Optimum one. The bridge
+keeps the username, the SHA-1 of the password and the lineup in `data/sd.json`, and three days of listings in
+`data/sd-cache.json`, refreshed every six hours (`sd.js`). **Check the wall's numbers against the lineup**
+compares the 2015 channel numbers on the wall with today's lineup and fixes the ones that moved. Sign out puts
+everything back on the free feed.
