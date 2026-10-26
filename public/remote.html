@@ -116,6 +116,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.apptile.na { opacity: .45; }
 .tile.add { place-items: center; border: 2px dashed var(--line); background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; }
 .empty { color: var(--muted); padding: 30px 8px; grid-column: 1 / -1; }
+.log { background: var(--bg); border-radius: 10px; padding: 10px; font: 11px/1.4 ui-monospace, Menlo, monospace; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 .k.sleep { min-height: 48px; font-weight: 600; font-size: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--tile)); }
 .k.sleep.on { background: var(--accent); color: var(--accent-ink); }
 #sleepQuick { display: none; }
@@ -465,11 +466,14 @@ const AUTO_TAGS = [[/deportes|español|espanol|univisi|telemundo|unim|galavisi|u
 const autoColor = (name) => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 48% 42%)`; };
 const autoTag = (name, groups) => { const t = AUTO_TAGS.find(([rx]) => rx.test(name || '')); return t ? t[1] : (groups && groups.length ? ({ news: 'News', sports: 'Sports', movies: 'Movies', kids: 'Kids', entertainment: 'Entertainment' })[groups[0]] || '' : ''); };
 const brand = (name, groups) => BRANDS[String(name || '').toLowerCase().trim()] || [autoColor(name), '', autoTag(name, groups)];
-const mono = (name) => { const w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/); const t = (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); return `<span class="logo mono">${esc(t)}</span>`; };
+const monoText = (name) => { const w = String(name || '').replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
+const mono = (name) => `<span class="logo mono">${esc(monoText(name))}</span>`;
 const gkey = (s) => String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
 const whatsOn = (name) => (state.whatsOn || {})[gkey(name)] || '';
 // the badge shows at once; the network's own icon replaces it when it loads (at home it always does)
-const logoImg = (bd, name) => `<span class="logowrap">${mono(name)}${bd && bd[1] ? `<img class="logo" alt="" loading="lazy" onload="this.previousElementSibling.remove()" onerror="this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64">` : ''}</span>`;
+const logoImg = (bd, name) => bd && bd[1]
+  ? `<span class="logowrap"><span class="logo mono" hidden>${esc(monoText(name))}</span><img class="logo" alt="" onerror="this.previousElementSibling.hidden=false;this.remove()" src="https://www.google.com/s2/favicons?domain=${esc(bd[1])}&sz=64"></span>`
+  : `<span class="logowrap">${mono(name)}</span>`;
 
 // ---------- state + transport ---------------------------------------------
 let state = { demo: false, boxes: [], channels: [], apps: [], channelEnter: 'none', whatsOn: {} };
@@ -501,7 +505,13 @@ async function boot() {
     if (!s || !Array.isArray(s.boxes)) throw new Error('no bridge');
     applyState(s);
     const es = new EventSource('/api/events');
-    es.onmessage = (e) => applyState(JSON.parse(e.data));
+    let lastData = '', pending = null;
+    es.onmessage = (e) => {
+      pushLog.push(Date.now()); while (pushLog.length && Date.now() - pushLog[0] > 60000) pushLog.shift();
+      if (e.data === lastData) return; lastData = e.data;
+      // several pushes in a burst (a volume ramp, a reconnect) draw once
+      clearTimeout(pending); pending = setTimeout(() => applyState(JSON.parse(lastData)), 120);
+    };
     es.onerror = () => { /* the browser reconnects on its own */ };
   } catch {
     standalone = true;
@@ -662,13 +672,14 @@ function setHTML(el, html) {
   const tpl = document.createElement('template'); tpl.innerHTML = html;
   const next = [...tpl.content.children], cur = [...el.children];
   if (cur.length && cur.length === next.length && [...tpl.content.childNodes].every((n) => n.nodeType === 1)) {
-    // same number of tiles: swap only the ones that changed, so the rest (and the scroll) stay put
+    // same number of tiles: swap only the ones that changed; nothing else moves, so the scroll is untouched
     for (let i = 0; i < cur.length; i++) if (cur[i].outerHTML !== next[i].outerHTML) el.replaceChild(next[i], cur[i]);
-  } else {
-    el.innerHTML = html;
+    return;
   }
-  if (top || left) { el.scrollTop = top; el.scrollLeft = left; requestAnimationFrame(() => { el.scrollTop = top; el.scrollLeft = left; }); }
+  el.innerHTML = html;
+  if ((top || left) && Date.now() - lastScrollAt > 400) { el.scrollTop = top; el.scrollLeft = left; }
 }
+let lastScrollAt = 0; document.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { capture: true, passive: true });
 function render() {
   const b = box();
   // boxes
@@ -924,6 +935,7 @@ function identifyPanel() {
     <div class="row2"><button class="btn" id="identifyStop" type="button">Start over</button><button class="btn" id="identifyStart" type="button">Show again</button></div>
   </div>`;
 }
+const pushLog = []; // times of the state pushes in the last minute
 let sheetSig = '', sheetPending = false;
 function renderSheet(force) {
   const host = $('#sheetHost');
@@ -1035,7 +1047,9 @@ function renderSheet(force) {
     </div>
     <p>Leave on "Just the digits" unless the box waits for a confirm key after the number.</p>
     <h3>Bridge</h3>
-    <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : `Running version ${esc(state.version || '?')}${state.lineup ? ` · lineup ${esc(state.lineup.replace('.json', ''))}` : ''}. Pulls the newest version and restarts (about a minute).`}</span></div>
+    <div><button class="btn" id="showLog" type="button">Bridge log</button> <span class="lbl">What the bridge has been doing: connections dropping, errors, timers. Send a screenshot of this when something misbehaves.</span></div>
+    <pre class="log" id="bridgeLog" hidden></pre>
+    <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : `Running version ${esc(state.version || '?')} · ${pushLog.length} updates in the last minute${state.lineup ? ` · lineup ${esc(state.lineup.replace('.json', ''))}` : ''}. Pulls the newest version and restarts (about a minute).`}</span></div>
     <div class="row2"><span></span><button class="btn pri" id="closeSheet" type="button">Done</button></div>
   </div></div>`;
 }
@@ -1130,6 +1144,10 @@ document.addEventListener('click', (e) => {
   }
   if ((el = btn('[data-allow]'))) { toast('Look at the TV and press Allow'); return api(`/api/box/${el.dataset.allow}/tv/allow`).catch((err) => toast(err.message)); }
   if (btn('#closeSheet')) { sheet = null; return render(); }
+  if (btn('#showLog')) {
+    const pre = $('#bridgeLog'); pre.hidden = false; pre.textContent = 'Reading…';
+    return api('/api/log').then((r) => { pre.textContent = `Rooms: ${r.rooms.map((x) => `${x.id} box=${x.box || '-'}${x.boxErr ? ' (' + x.boxErr + ')' : ''} tv=${x.tv || '-'} link=${x.link || '-'}${x.linkErr ? ' (' + x.linkErr + ')' : ''}`).join(' · ')}\nState pushes this minute: ${r.pushesThisMinute}\n\n${r.lines.join('\n')}`; pre.scrollTop = pre.scrollHeight; }).catch((err) => { pre.textContent = err.message; });
+  }
   if (btn('#updateBridge')) { $('#updateOut').textContent = 'Updating… the page reconnects by itself.'; return api('/api/update', {}).then((r) => { $('#updateOut').textContent = r.message || 'Restarting…'; }).catch((err) => { $('#updateOut').textContent = err.message; }); }
   if (btn('#pairCancel')) { const s = sheet; sheet = null; if (s && s.pair) { dismissedPair.add(s.pair + ':' + (s.target || 'box')); api(`/api/box/${s.pair}/pair/cancel`, { target: s.target || 'box' }).catch(() => {}); } return render(); }
   if (btn('#pairSend')) { const x = state.boxes.find((b) => b.id === sheet.pair); return api(`/api/box/${x.id}/code`, { code: $('#pairCode').value, target: sheet.target || 'box' }).then(() => toast('Code sent, waiting…')).catch((err) => toast(err.message)); }

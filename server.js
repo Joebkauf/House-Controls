@@ -33,7 +33,10 @@ const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const CERT_DIR = path.join(DATA_DIR, 'certs');
 fs.mkdirSync(CERT_DIR, { recursive: true });
 
-const log = (...a) => console.log(new Date().toLocaleTimeString('en-US'), ...a);
+// The bridge keeps its last 300 log lines in memory so the app can show them (Boxes & setup → Bridge log).
+const LOG_RING = [];
+const log = (...a) => { const line = `${new Date().toLocaleTimeString('en-US')} ${a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')}`; console.log(line); LOG_RING.push(line); if (LOG_RING.length > 300) LOG_RING.shift(); };
+let broadcastCount = 0, broadcastWindow = Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const err = (msg, status = 400) => Object.assign(new Error(msg), { status });
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'room';
@@ -103,6 +106,8 @@ const rooms = new Map();
 const listeners = new Set();
 const identify = { active: false, boxes: new Map(), tvs: new Map(), found: null, matched: null, matchedTv: null, timer: null }; // the "show every TV its address" session
 function broadcast() {
+  broadcastCount++;
+  if (Date.now() - broadcastWindow > 60000) { if (broadcastCount > 30) log(`[busy] ${broadcastCount} state pushes in the last minute`); broadcastCount = 0; broadcastWindow = Date.now(); }
   const payload = `data: ${JSON.stringify(publicState())}\n\n`;
   for (const res of listeners) res.write(payload);
 }
@@ -170,7 +175,7 @@ function androidLink(id, host, label, serviceName) {
     remote.on('current_app', (a) => { L.app = a; broadcast(); });
     remote.on('error', (e) => { L.lastError = String(e && e.error ? JSON.stringify(e.error) : e); log(`[${id}] error`, L.lastError); broadcast(); });
     remote.on('unpaired', () => { log(`[${id}] ${label} says we are not paired`); try { fs.unlinkSync(certPath(host)); } catch {} try { fs.unlinkSync(certPath(id)); } catch {} L.status = 'needs-pairing'; L.remote = null; broadcast(); });
-    remote.on('ready', () => { L.status = 'ready'; L.needsCode = false; fs.writeFileSync(certPath(host), JSON.stringify(remote.getCertificate())); log(`[${id}] ready`); broadcast(); });
+    remote.on('ready', () => { if (L.status !== 'ready') log(`[${id}] connected`); L.status = 'ready'; L.needsCode = false; fs.writeFileSync(certPath(host), JSON.stringify(remote.getCertificate())); log(`[${id}] ready`); broadcast(); });
     try {
       const started = await remote.start();
       if (!started && L.status !== 'ready') { L.status = cert ? 'offline' : 'needs-pairing'; L.needsCode = false; L.lastError = L.lastError || (pair ? 'the box stopped asking for a code; tap Pair again' : 'could not connect'); broadcast(); }
@@ -421,6 +426,7 @@ const wrap = (fn) => async (req, res) => {
 app.get('/api/state', (_req, res) => res.json(publicState()));
 app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(GUIDE.schedule(config.channels, from, from + hours * 3600000)); });
 app.get('/api/find-show', (req, res) => res.json(GUIDE.findShow(config.channels, String(req.query.q || ''))));
+app.get('/api/log', (_req, res) => res.json({ lines: LOG_RING.slice(-120), pushesThisMinute: broadcastCount, rooms: [...rooms.values()].map((r) => ({ id: r.cfg.id, box: r.box ? r.box.status : null, boxErr: r.box && r.box.lastError || null, tv: r.tv ? r.tv.status : null, link: r.sonyLink ? r.sonyLink.status : null, linkErr: r.sonyLink && r.sonyLink.lastError || null })) }));
 app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
 app.get('/api/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
