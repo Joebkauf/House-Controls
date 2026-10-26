@@ -490,18 +490,27 @@ function publicIdentify() {
     tvs: [...identify.tvs.values()].map((t) => ({ host: t.host, status: t.status, allowed: !!t.token, room: roomOf(t.host) })),
   };
 }
-function stopIdentify({ keepTvs = false } = {}) {
+function stopIdentify({ keepTvs = false, keepMatches = false } = {}) {
   for (const L of identify.boxes.values()) L.close();
   identify.boxes.clear();
+  if (!keepMatches) { identify.matched = null; identify.matchedTv = null; }
   if (!keepTvs) { for (const t of identify.tvs.values()) { try { t.close(); } catch {} } identify.tvs.clear(); }
   identify.active = !!(keepTvs && identify.tvs.size);
   clearTimeout(identify.timer);
   broadcast();
 }
 async function startIdentify() {
-  stopIdentify(); identify.matched = null; identify.matchedTv = null;
+  stopIdentify({ keepMatches: true });
   const d = await discoverAll(); identify.found = d;
+  const inRoom = (host) => config.boxes.some((b) => b.host === host || (b.tv && b.tv.host === host));
   for (const f of d.found) {
+    if (inRoom(f.host)) continue; // already set up in a room: never bother that TV again
+    const matched = identify.matched === f.host || (identify.matchedTv && identify.matchedTv.host === f.host);
+    if (matched || (!DEMO && readCertFile(f.host))) {
+      // paired already (this round or an earlier one): no new code, just offer it
+      identify.boxes.set(f.host, { host: f.host, kind: f.kind, model: f.name || '', status: 'ready', needsCode: false, lastError: null, close() {} });
+      continue;
+    }
     const L = androidLink(`find-${f.host}`, f.host, `${f.kind === 'sony-tv' ? 'Sony TV' : 'box'} ${f.host}`, `House Controls · ${f.kind === 'sony-tv' ? 'TV' : 'box'} ${f.host}`);
     L.kind = f.kind; L.model = f.name || '';
     identify.boxes.set(f.host, L);
@@ -520,17 +529,27 @@ async function startIdentify() {
 }
 app.post('/api/identify', wrap(() => startIdentify()));
 app.post('/api/identify/stop', wrap(async () => { stopIdentify(); return { ok: true }; }));
+// A device already paired (listed "paired ✓") goes straight into the room being built.
+app.post('/api/identify/pick', wrap(async (req) => {
+  const host = String(req.body.host || ''); const L = identify.boxes.get(host);
+  if (!L) throw err('that device is not in the list any more; tap "Show again"', 404);
+  if (L.kind === 'sony-tv') identify.matchedTv = { brand: 'sony', host, name: L.model || '' }; else identify.matched = host;
+  broadcast(); return { host, kind: L.kind || 'box', name: L.model || '' };
+}));
 app.post('/api/identify/code', wrap(async (req) => {
   const code = String(req.body.code || '').trim().toUpperCase();
   if (!code) throw err('type the code on the TV');
   const asking = [...identify.boxes.values()].filter((L) => L.needsCode);
-  if (!asking.length) throw err('no box is showing a code right now; tap "Show every TV its address" again', 409);
+  if (!asking.length) throw err('nothing is showing a code right now; tap "Show again"', 409);
   // Whichever device accepts the code is the one in front of the person. A Sony TV fills the TV slot, a box the
   // box slot; the others keep showing their codes so the second device in the room can be typed next.
   const take = (hit) => {
-    hit.close(); identify.boxes.delete(hit.host);
+    hit.close();
+    identify.boxes.set(hit.host, { host: hit.host, kind: hit.kind, model: hit.model || '', status: 'ready', needsCode: false, lastError: null, close() {} });
     if (hit.kind === 'sony-tv') identify.matchedTv = { brand: 'sony', host: hit.host, name: hit.model || '' }; else identify.matched = hit.host;
-    if (![...identify.boxes.values()].some((L) => L.needsCode || L.status === 'pairing' || L.status === 'connecting')) stopIdentify({ keepTvs: true });
+    // The wrong code just closed every other device's prompt. Ask the still-unpaired ones again, so the box's
+    // code is waiting the moment the TV is switched to its input. No one has to tap anything.
+    if (!DEMO) setTimeout(() => { for (const L of identify.boxes.values()) if (L.connect && L.status !== 'ready') L.connect({ pair: true }); }, 1500);
     broadcast();
     return { host: hit.host, kind: hit.kind || 'box', name: hit.model || '' };
   };

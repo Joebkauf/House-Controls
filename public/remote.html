@@ -694,6 +694,26 @@ function tvForm(x) {
   </div>`;
 }
 let idCodeDraft = '';
+// A device the person just identified goes into the Add-a-room form: a TV into the TV slot, a box into the box slot.
+// Everything already typed stays; a room with no name yet gets one so Add room works with one tap.
+function fillFromIdentify(r) {
+  const keep = { name: ($('#nbName') || {}).value || '', host: ($('#nbHost') || {}).value || '', tvHost: ($('#nbTvHost') || {}).value || '' };
+  renderSheet(true);
+  setTimeout(() => { // after renderSheet's own restore pass, which would otherwise put the old choices back
+    if ($('#nbName')) $('#nbName').value = keep.name || `Room ${state.boxes.length + 1}`;
+    if (r.kind === 'sony-tv' || r.kind === 'samsung-tv') {
+      const sb = $(`#nbBrand [data-nbbrand="${r.kind === 'sony-tv' ? 'sony' : 'samsung'}"]`); if (sb) sb.click();
+      if ($('#nbTvHost')) $('#nbTvHost').value = r.host;
+      if ($('#nbHost')) $('#nbHost').value = keep.host;
+      toast(r.kind === 'sony-tv' ? `Sony TV ${r.host} is in. Switch the TV to the Stream box: its code is waiting there. Or tap Add room now if this room has no box.` : `Samsung TV ${r.host} is in. Now the Stream box's code, then Add room.`, 7000);
+    } else {
+      const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb) tb.click();
+      if ($('#nbHost')) $('#nbHost').value = r.host;
+      if ($('#nbTvHost')) $('#nbTvHost').value = keep.tvHost;
+      toast(`Stream box ${r.host} is in. ${keep.tvHost ? 'Tap Add room.' : 'Now the TV, then Add room.'}`, 6000);
+    }
+  }, 20);
+}
 function identifyPanel() {
   const id = state.identify;
   if (!id) return `<div class="idpanel">
@@ -707,18 +727,27 @@ function identifyPanel() {
   return `<div class="idpanel">
     <div class="big">${head}</div>
     ${got.length ? `<p>Paired and filled in below.${id.matchedTv && !id.matched && id.active ? ' Switch the TV to the Stream box\'s input: the box puts up its own code. Type that too.' : ''}${id.matched && !id.matchedTv && id.active ? ' If this room\'s TV is a Sony, press Home on the TV: its own code is waiting. A Samsung: press Allow on the set and tap its address below.' : ''}</p>` : ''}
-    ${id.active ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : ' Waiting for the TVs and boxes to answer…'}</p>
+    ${id.active ? `<p>${got.length ? 'Another code on a screen?' : 'Every Sony TV shows a six-character code on its own screen; a Stream box shows one when the TV is on its input.'}${asking.length ? ' Type the one you see:' : (id.boxes.some((b) => b.status !== 'ready') ? ' Waiting for the TVs and boxes to answer…' : ' Everything found is paired: name the room and tap Add room.')}</p>
     <div class="formrow" style="grid-template-columns:1fr auto"><input class="code" id="idCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="······" value="${esc(idCodeDraft)}"><button class="btn pri" id="idCodeSend" type="button" ${asking.length ? '' : 'disabled'}>This is the one</button></div>` : ''}
     <div class="idlist">
-      ${id.boxes.map((b) => `<div class="row"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span class="st ${b.status === 'ready' ? 'ok' : ''}">${b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span></div>`).join('')}
+      ${id.boxes.map((b) => { const used = (id.matched === b.host) || (id.matchedTv && id.matchedTv.host === b.host); return `<div class="row"><span>${b.kind === 'sony-tv' ? 'Sony TV' : 'Stream box'} ${esc(b.host)}${b.name ? ` <span class="st">${esc(b.name)}</span>` : ''}${b.room ? ` · already in ${esc(b.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${b.status === 'ready' ? 'ok' : ''}">${used ? 'this room ✓' : b.status === 'ready' ? 'paired ✓' : b.needsCode ? 'showing a code' : b.status === 'pairing' ? 'asking…' : esc(b.error || b.status)}</span>${b.status === 'ready' && !used ? `<button class="btn" data-idpick="${esc(b.host)}" type="button">Use here</button>` : ''}</span></div>`; }).join('')}
       ${id.tvs.map((t) => `<div class="row"><span>Samsung TV ${esc(t.host)}${t.room ? ` · already in ${esc(t.room)}` : ''}</span><span style="display:flex;gap:6px;align-items:center"><span class="st ${t.allowed ? 'ok' : ''}">${t.allowed ? 'allowed ✓' : t.status === 'needs-allow' ? 'press Allow on the TV' : esc(t.status)}</span><button class="btn" data-idtv="${esc(t.host)}" type="button">This room's TV</button></span></div>`).join('')}
       ${!id.boxes.length && !id.tvs.length ? '<div class="st">Nothing answered. Turn the TVs and boxes on and try again.</div>' : ''}
     </div>
     <div class="row2"><button class="btn" id="identifyStop" type="button">Clear the TVs</button><button class="btn" id="identifyStart" type="button">Show again</button></div>
   </div>`;
 }
-function renderSheet() {
+let sheetSig = '', sheetPending = false;
+function renderSheet(force) {
   const host = $('#sheetHost');
+  if (sheet === 'setup' && !force) {
+    // Only redraw when something the sheet shows has changed, and never while a box on it is being typed in.
+    const sig = JSON.stringify([tvEdit, editing, state.identify, state.version, state.lineup, standalone, state.boxes.map((b) => [b.id, b.name, b.host, b.boxType, b.status, b.needsCode, b.lastError, b.tv && [b.tv.brand, b.tv.host, b.tv.status, b.tv.linkStatus, b.tv.linkNeedsCode, b.tv.model, b.tv.error, b.tv.frame]])]);
+    if (sig === sheetSig && host.children.length) return;
+    const typing = document.activeElement && host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (typing) { if (!sheetPending) { sheetPending = true; document.activeElement.addEventListener('blur', () => { sheetPending = false; setTimeout(() => renderSheet(), 50); }, { once: true }); } return; }
+    sheetSig = sig;
+  }
   const keep = {}; ['nbName', 'nbHost', 'nbTvHost', 'nbPsk', 'tvHost', 'tvPsk', 'pairCode'].forEach((k) => { const el = document.getElementById(k); if (el) keep[k] = el.value; });
   const keepSeg = {}; ['nbType', 'nbBrand'].forEach((k) => { const on = document.querySelector(`#${k} .on`); if (on) keepSeg[k] = on.dataset.nbtype || on.dataset.nbbrand; });
   const keepScroll = host.firstElementChild && host.firstElementChild.firstElementChild ? host.firstElementChild.firstElementChild.scrollTop : 0;
@@ -733,7 +762,7 @@ function renderSheet() {
   for (const k of [...dismissedPair]) { const [id, tg] = k.split(':'); const x = state.boxes.find((b) => b.id === id); const still = x && (tg === 'tv' ? x.tv && x.tv.linkNeedsCode : x.status === 'pairing' && x.needsCode); if (!still) dismissedPair.delete(k); }
   if (pairing && !dismissedPair.has(pairing.id + ':box') && (!sheet || sheet.pair !== pairing.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairing.id, target: 'box' };
   else if (pairingTv && !dismissedPair.has(pairingTv.id + ':tv') && (!sheet || sheet.pair !== pairingTv.id) && sheet !== 'setup' && !(sheet && sheet.learn)) sheet = { pair: pairingTv.id, target: 'tv' };
-  if (!sheet) { host.innerHTML = ''; return; }
+  if (!sheet) { host.innerHTML = ''; sheetSig = ''; return; }
   if (sheet === 'import') {
     host.innerHTML = `<div class="sheet"><div>
       <h2>Load a channel lineup</h2>
@@ -888,39 +917,19 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-reconnect]'))) return api(`/api/box/${el.dataset.reconnect}/reconnect`).catch((err) => toast(err.message));
   if ((el = btn('[data-rmbox]'))) return saveConfig({ boxes: state.boxes.filter((b) => b.id !== el.dataset.rmbox).map(({ id, name, host }) => ({ id, name, host })) });
   if ((el = btn('[data-nbbrand]'))) { el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el)); return; }
-  if (btn('#identifyStart')) { toast('Asking every TV and box… look at the screens', 4000); return api('/api/identify', {}).then(() => renderSheet()).catch((err) => toast(err.message)); }
+  if (btn('#identifyStart')) { toast('Asking every TV and box… look at the screens', 4000); return api('/api/identify', {}).then(() => renderSheet(true)).catch((err) => toast(err.message)); }
   if (btn('#identifyStop')) { return api('/api/identify/stop', {}).then(() => { if (state.identify) state.identify = null; renderSheet(); }).catch((err) => toast(err.message)); }
   if (btn('#idCodeSend')) {
     const code = ($('#idCode') || {}).value || ''; idCodeDraft = '';
     toast('Checking that code against every box…', 3000);
     return api('/api/identify/code', { code }).then((r) => {
-      const keep = { name: ($('#nbName') || {}).value || '', host: ($('#nbHost') || {}).value || '', tvHost: ($('#nbTvHost') || {}).value || '' };
-      renderSheet();
-      setTimeout(() => { // after renderSheet's own restore pass, which would otherwise put the old choices back
-      if ($('#nbName')) $('#nbName').value = keep.name;
-      if (r.kind === 'sony-tv') {
-        const sb = $('#nbBrand [data-nbbrand="sony"]'); if (sb) sb.click();
-        if ($('#nbTvHost')) $('#nbTvHost').value = r.host;
-        if ($('#nbHost')) $('#nbHost').value = keep.host;
-        toast(`That was the Sony TV at ${r.host}: paired and filled in. Now the box: switch the TV to the Stream box and type its code too, or add the room now if there is no box.`, 7000);
-      } else {
-        const tb = $('#nbType [data-nbtype="androidtv"]'); if (tb) tb.click();
-        if ($('#nbHost')) $('#nbHost').value = r.host;
-        if ($('#nbTvHost')) $('#nbTvHost').value = keep.tvHost;
-        toast(`That was the Stream box at ${r.host}: paired and filled in. Now the TV, then name the room and tap Add room.`, 6000);
-      }
-      }, 20);
+      fillFromIdentify(r);
     }).catch((err) => toast(err.message, 6000));
   }
-  if ((el = btn('[data-idtv]'))) {
-    const tvHost = el.dataset.idtv;
-    setTimeout(() => {
-      const sb = $('#nbBrand [data-nbbrand="samsung"]'); if (sb) sb.click();
-      if ($('#nbTvHost')) $('#nbTvHost').value = tvHost;
-    }, 20);
-    toast(`Samsung TV ${tvHost} filled in. Name the room and tap Add room.`, 4000);
-    return;
+  if ((el = btn('[data-idpick]'))) {
+    return api('/api/identify/pick', { host: el.dataset.idpick }).then((r) => fillFromIdentify(r)).catch((err) => toast(err.message, 6000));
   }
+  if ((el = btn('[data-idtv]'))) { fillFromIdentify({ host: el.dataset.idtv, kind: 'samsung-tv' }); return; }
   if ((el = btn('[data-nbtype]'))) {
     el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
     const t = el.dataset.nbtype; const h = $('#nbHost'); h.disabled = t === 'none';
