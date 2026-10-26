@@ -122,6 +122,26 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.plug .pw { font-size: 20px; color: var(--muted); } .tile.plug .pw.on { color: var(--ok); }
 .tile.plug .plugico { font-size: 14px; background: var(--panel); color: var(--fg); }
 .tile.plug.live { border-color: var(--ok); }
+.grid:has(.stat) { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.tile.stat { cursor: default; gap: 10px; justify-content: flex-start; }
+.tile.stat .top { padding-right: 0; }
+.tile.stat .word { margin-left: auto; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.tile.stat.heating .word { color: var(--warn); } .tile.stat.cooling .word { color: #3b82c4; } .tile.stat.down .word { color: var(--bad); }
+.stbody { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: center; }
+.stcur { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stbig { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stcur .lbl { font-size: 10.5px; white-space: nowrap; }
+.stset { display: grid; gap: 6px; }
+.stset .row { display: flex; align-items: center; gap: 8px; }
+.stset .row .lbl { width: 64px; flex: none; }
+.stset .pm { width: 44px; height: 40px; border-radius: 10px; background: var(--bg); font-size: 24px; font-weight: 700; line-height: 1; }
+.stset .pm:active { background: var(--tile-hi); }
+.stset .stval { font-family: var(--display); font-weight: 700; font-size: 24px; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+.stset .stval small { font-size: 12px; font-weight: 600; color: var(--muted); font-family: var(--body); display: block; }
+.strow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.strow .seg button { padding: 6px 10px; }
+.strow .lnk { color: var(--accent); font-weight: 600; font-size: 12.5px; padding: 4px 0; }
+.tile.stat.down { opacity: .7; } .tile.stat .why { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
 .k.sleep { min-height: 48px; font-weight: 600; font-size: 14px; background: color-mix(in srgb, var(--accent) 14%, var(--tile)); }
 .k.sleep.on { background: var(--accent); color: var(--accent-ink); }
 #sleepQuick { display: none; }
@@ -373,7 +393,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const GROUPS = [['apps','Apps'],['all','All channels'],['fav','Favorites'],['guide','Guide'],['house','Plugs & lights'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
+const GROUPS = [['apps','Apps'],['all','All channels'],['fav','Favorites'],['guide','Guide'],['house','Plugs & lights'],['heat','Thermostats'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
 const APP_NAMES = [
   [/altice|optimum/i, 'Optimum TV'], [/netflix/i, 'Netflix'], [/youtube\.tv/i, 'YouTube TV'], [/youtube/i, 'YouTube'],
   [/amazon/i, 'Prime Video'], [/hulu/i, 'Hulu'], [/disney/i, 'Disney+'], [/hbo|max/i, 'Max'], [/peacock/i, 'Peacock'],
@@ -579,11 +599,25 @@ function demoState() {
     apps: DEMO_APPS.map(([id, name, samsung, pkg, boxOnly]) => ({ id, name, link: boxOnly ? null : 'https://example', samsung, pkg, boxOnly: !!boxOnly })),
     channels: DEMO_CHANNELS.map(([name, number, groups, fav]) => ({ name, number, groups, fav })),
     plugs: [{ id: 'p1', name: 'Nightstand Fan', room: 'Master', on: true, online: true, category: 'cz' }, { id: 'p2', name: 'Gym Lights', room: 'Gym', on: false, online: true, category: 'kg' }, { id: 'p3', name: 'Gym TV', room: 'Cable Boxes', on: true, online: true, category: 'cz' }, { id: 'p4', name: 'Living Room Lights', room: 'Living Room', on: false, online: true, category: 'kg' }],
+    thermostats: [
+      { id: 'attic', name: 'Attic', host: '192.168.1.40', status: 'ok', temp: 70, humidity: 41, outdoorTemp: 48, heat: 70, cool: 76, scale: 'F', mode: 2, modeName: 'Heat', fan: 2, running: 'Idle', heating: 0, cooling: 0, hold: 0 },
+      { id: 'bedroom-level', name: 'Bedroom Level', host: '192.168.1.41', status: 'ok', temp: 73, humidity: 44, outdoorTemp: 48, heat: 73, cool: 76, scale: 'F', mode: 2, modeName: 'Heat', fan: 2, running: 'Heating', heating: 2, cooling: 0, hold: 1, holdEnd: Date.now() + 2 * 3600000 },
+      { id: 'living-level', name: 'Living Level', host: '192.168.1.42', status: 'ok', temp: 73, humidity: 43, outdoorTemp: 48, heat: 72, cool: 76, scale: 'F', mode: 2, modeName: 'Heat', fan: 2, running: 'Idle', heating: 0, cooling: 0, hold: 0 },
+    ],
     whatsOn: { abc: 'Good Morning America', cbs: 'CBS Mornings', nbc: 'Today', fox: 'Good Day New York', cnn: 'CNN News Central', foxnews: 'America’s Newsroom', msnbc: 'Morning Joe', cnbc: 'Squawk Box', espn: 'SportsCenter', hgtv: 'Love It or List It', foodnetwork: 'The Pioneer Woman', tnt: 'Charmed', tbs: 'Friends', amc: 'The Walking Dead', hbo: 'The Last of Us' },
   };
 }
 function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
+  if (path === '/api/thermostats/scan') return { found: [{ host: '192.168.1.43', name: 'Gym', mac: 'b4:e6:2d:10:20:30' }], already: (state.thermostats || []).map((t) => ({ host: t.host, name: t.name, known: true })), networks: ['192.168.1.x'] };
+  if (path.startsWith('/api/thermostats/')) {
+    const t = (state.thermostats || []).find((x) => x.id === path.split('/').pop()); if (!t) throw new Error('unknown thermostat');
+    if (body.mode) { t.mode = body.mode; t.running = body.mode === 1 ? 'Off' : 'Idle'; t.heating = 0; }
+    if (body.fan) t.fan = body.fan;
+    if (body.bump) { const k = body.bump.which === 'cool' ? 'cool' : 'heat'; t[k] += Math.sign(body.bump.delta || 1); t.hold = 1; t.holdEnd = Date.now() + 2 * 3600000; }
+    if (body.hold != null) { t.hold = body.hold; if (body.hold !== 1) t.holdEnd = null; }
+    demoSave(); return { ok: true, thermostat: { ...t } };
+  }
   if (path.startsWith('/api/plugs/')) { const p = (state.plugs || []).find((x) => x.id === path.split('/').pop()); if (p) p.on = !!body.on; demoSave(); render(); return { ok: true }; }
   if (path.startsWith('/api/guide')) {
     const from = Math.floor(Date.now() / 1800000) * 1800000, to = from + 3 * 3600000;
@@ -726,6 +760,7 @@ function render() {
   const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? isFav(c) : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
   if (tab === 'house') { renderPlugs(); } else
+  if (tab === 'heat') { renderStats(); } else
   if (tab === 'guide') { renderGuide(b); } else
   if (tab === 'apps') {
     const tvOnly = b && b.boxType !== 'androidtv', samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
@@ -816,6 +851,34 @@ function refreshShows() {
 }
 const fmtWhen = (t) => { const d = new Date(t), now = new Date(); const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); return d.toDateString() === now.toDateString() ? `at ${time}` : `tomorrow at ${time}`; };
 // ---------- plugs, switches and lights ----------
+function renderStats() {
+  const g = $('#grid');
+  const list = state.thermostats || [];
+  if (!list.length) {
+    setHTML(g, `<p class="empty">The AprilAire thermostats show here once the bridge knows their addresses: ⚙ Boxes & setup → Thermostats, where "Find thermostats" looks for them on the Wi-Fi. Each thermostat also needs its Connection Type set to Automation once, in its own Contractor Menu.</p>`);
+    return;
+  }
+  const fmtT = (t, v) => (v == null ? '—' : `${v}${t.scale === 'C' ? '°C' : '°'}`);
+  const when = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  setHTML(g, list.map((t) => {
+    const down = t.status !== 'ok', mode = t.mode || 0;
+    const word = down ? (t.status === 'connecting' ? 'Connecting…' : 'Not reachable') : (t.running || '');
+    const cls = down ? 'down' : t.heating > 1 ? 'heating' : t.cooling > 1 ? 'cooling' : '';
+    const showHeat = !down && (mode === 2 || mode === 4 || mode === 5), showCool = !down && (mode === 3 || mode === 5);
+    const row = (which, label, v) => `<div class="row"><span class="lbl">${label}</span><button class="pm" type="button" data-stat="${esc(t.id)}" data-act="bump" data-which="${which}" data-delta="-1" aria-label="${label} one degree lower">−</button><span class="stval">${fmtT(t, v)}</span><button class="pm" type="button" data-stat="${esc(t.id)}" data-act="bump" data-which="${which}" data-delta="1" aria-label="${label} one degree higher">+</button></div>`;
+    const holdLine = down ? '' : t.hold === 1 ? `Holding${t.holdEnd ? ` until ${when(t.holdEnd)}` : ''} · <button class="lnk" type="button" data-stat="${esc(t.id)}" data-act="hold" data-v="0">Back to the schedule</button>` : t.hold === 2 ? `Holding for good · <button class="lnk" type="button" data-stat="${esc(t.id)}" data-act="hold" data-v="0">Back to the schedule</button>` : t.hold >= 3 ? `${esc(t.holdName)} · <button class="lnk" type="button" data-stat="${esc(t.id)}" data-act="hold" data-v="0">Back to the schedule</button>` : (mode && mode !== 1 ? `On its schedule · <button class="lnk" type="button" data-stat="${esc(t.id)}" data-act="hold" data-v="2">Hold these settings</button>` : '');
+    return `<div class="tile stat ${cls}" data-statid="${esc(t.id)}">
+      <span class="top"><span class="logo mono plugico">🌡</span><span class="name">${esc(t.name)}</span><span class="word">${esc(word)}</span></span>
+      ${down ? `<p class="why">${esc(t.error || 'Waiting for the thermostat')}${t.host ? ` · ${esc(t.host)}` : ''}</p>` : `<div class="stbody">
+        <div class="stcur"><span class="stbig">${fmtT(t, t.temp)}</span><span class="lbl">inside</span>${t.humidity != null ? `<span class="lbl">${t.humidity}% humidity</span>` : ''}${t.outdoorTemp != null ? `<span class="lbl">${fmtT(t, t.outdoorTemp)} outside</span>` : ''}</div>
+        <div class="stset">${showHeat ? row('heat', 'Heat to', t.heat) : ''}${showCool ? row('cool', 'Cool to', t.cool) : ''}${!showHeat && !showCool ? `<span class="show tag">${mode === 1 ? 'The system is off' : 'Waiting for the thermostat'}</span>` : ''}</div>
+      </div>
+      <div class="strow"><span class="seg">${[[2, 'Heat'], [3, 'Cool'], [5, 'Auto'], [1, 'Off']].map(([v, l]) => `<button type="button" class="${mode === v ? 'on' : ''}" data-stat="${esc(t.id)}" data-act="mode" data-v="${v}">${l}</button>`).join('')}</span>
+        <span>Fan</span><span class="seg">${[[2, 'Auto'], [1, 'On'], [3, 'Circulate']].map(([v, l]) => `<button type="button" class="${t.fan === v ? 'on' : ''}" data-stat="${esc(t.id)}" data-act="fan" data-v="${v}">${l}</button>`).join('')}</span></div>
+      ${holdLine ? `<div class="strow">${holdLine}</div>` : ''}`}
+    </div>`;
+  }).join(''));
+}
 function renderPlugs() {
   const g = $('#grid');
   const plugs = state.plugs || [], tu = state.tuya || {};
@@ -984,7 +1047,7 @@ function renderSheet(force) {
   const host = $('#sheetHost');
   if (sheet === 'setup' && !force) {
     // Only redraw when something the sheet shows has changed, and never while a box on it is being typed in.
-    const sig = JSON.stringify([tvEdit, editing, state.identify, state.version, state.lineup, state.tuya, standalone, state.boxes.map((b) => [b.id, b.name, b.host, b.boxType, b.status, b.needsCode, b.lastError, b.tv && [b.tv.brand, b.tv.host, b.tv.status, b.tv.linkStatus, b.tv.linkNeedsCode, b.tv.model, b.tv.error, b.tv.frame]])]);
+    const sig = JSON.stringify([tvEdit, editing, state.identify, state.version, state.lineup, state.tuya, (state.thermostats || []).map((t) => [t.id, t.name, t.host, t.status, t.error, t.temp]), standalone, state.boxes.map((b) => [b.id, b.name, b.host, b.boxType, b.status, b.needsCode, b.lastError, b.tv && [b.tv.brand, b.tv.host, b.tv.status, b.tv.linkStatus, b.tv.linkNeedsCode, b.tv.model, b.tv.error, b.tv.frame]])]);
     if (sig === sheetSig && host.children.length) return;
     const typing = document.activeElement && host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
     if (typing) { if (!sheetPending) { sheetPending = true; document.activeElement.addEventListener('blur', () => { sheetPending = false; setTimeout(() => renderSheet(), 50); }, { once: true }); } return; }
@@ -1096,6 +1159,15 @@ function renderSheet(force) {
       <div class="formrow" style="grid-template-columns:1fr 1fr"><input id="tuyaId" placeholder="Access ID / Client ID" autocomplete="off"><input id="tuyaSecret" placeholder="Access Secret" autocomplete="off"></div>
       <div class="row2"><select id="tuyaRegion" class="btn"><option value="us">Data center: US West</option><option value="us-e">US East</option><option value="eu">Central Europe</option><option value="eu-w">Western Europe</option><option value="in">India</option><option value="cn">China</option></select><button class="btn pri" id="tuyaSave" type="button">Save & test</button></div>
     </div>
+    <div class="idpanel" id="statCard">
+      <div class="big">Thermostats</div>
+      <p>AprilAire Wi-Fi thermostats, talked to directly over the house network. Once, on each thermostat itself: open its Contractor Menu and set <b>Connection Type</b> to <b>Automation</b> (the AprilAire phone app keeps working). Then give each one a fixed address in the router so it never moves. Clear an address here to drop that thermostat.</p>
+      <div id="statRows">${(state.thermostats || []).map((t) => `<div class="formrow" style="grid-template-columns:1fr 1fr auto" data-statrow data-id="${esc(t.id)}"><input class="stName" value="${esc(t.name)}" placeholder="Name (Bedroom Level)" autocomplete="off"><input class="stHost" value="${esc(t.host)}" placeholder="Address (192.168.1.40)" autocomplete="off" inputmode="decimal"><span class="lbl" style="align-self:center;white-space:nowrap">${t.status === 'ok' ? `${t.temp != null ? `${t.temp}° · ` : ''}connected` : t.status === 'connecting' ? 'connecting…' : /refused/.test(t.error || '') ? 'refused · set Automation' : 'not answering'}</span></div>`).join('')}
+        <div class="formrow" style="grid-template-columns:1fr 1fr auto" data-statrow><input class="stName" placeholder="Name (Bedroom Level)" autocomplete="off"><input class="stHost" placeholder="Address (192.168.1.40)" autocomplete="off" inputmode="decimal"><span class="lbl" style="align-self:center">new</span></div>
+      </div>
+      <div class="row2"><button class="btn" id="statScan" type="button">Find thermostats on the Wi-Fi</button><button class="btn pri" id="statSave" type="button">Save thermostats</button></div>
+      <div id="statScanOut" class="lbl"></div>
+    </div>
     <div><button class="btn" id="showLog" type="button">Bridge log</button> <span class="lbl">What the bridge has been doing: connections dropping, errors, timers. Send a screenshot of this when something misbehaves.</span></div>
     <pre class="log" id="bridgeLog" hidden></pre>
     <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : `Running version ${esc(state.version || '?')} · ${pushLog.length} updates in the last minute${state.lineup ? ` · lineup ${esc(state.lineup.replace('.json', ''))}` : ''}. Pulls the newest version and restarts (about a minute).`}</span></div>
@@ -1127,6 +1199,12 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-plug]'))) {
     const on = el.dataset.on !== '1'; el.dataset.on = on ? 1 : 0; el.classList.toggle('live', on); $('.show', el).textContent = on ? 'Turning on…' : 'Turning off…';
     return api(`/api/plugs/${el.dataset.plug}`, { on }).catch((err) => { toast(err.message, 5000); render(); });
+  }
+  if ((el = btn('[data-stat]'))) {
+    const id = el.dataset.stat, act = el.dataset.act;
+    const body = act === 'bump' ? { bump: { which: el.dataset.which, delta: Number(el.dataset.delta) } } : act === 'mode' ? { mode: Number(el.dataset.v) } : act === 'fan' ? { fan: Number(el.dataset.v) } : { hold: Number(el.dataset.v) };
+    if (act === 'bump') { const v = $('.stval', el.parentElement); if (v) v.style.opacity = '.5'; }
+    return api(`/api/thermostats/${id}`, body).then((r) => { const i = (state.thermostats || []).findIndex((t) => t.id === id); if (i >= 0 && r.thermostat) { state.thermostats[i] = r.thermostat; render(); } }).catch((err) => { toast(err.message, 5000); render(); });
   }
   if ((el = btn('[data-hp]'))) { const b = box(); if (!b) return; return api(`/api/box/${b.id}/headphone`, { dir: el.dataset.hp }).catch((err) => toast(err.message, 5000)); }
   if ((el = btn('[data-digit]'))) return pressDigit(el.dataset.digit);
@@ -1258,6 +1336,26 @@ document.addEventListener('click', (e) => {
       return api(`/api/box/${room.id}/tv`, { brand, host: tvHost, route: 'tv', frame: $('#nbFrame').checked, ...($('#nbPsk').value ? { psk: $('#nbPsk').value } : {}) })
         .then((st2) => { applyState(st2); toast(brand === 'samsung' ? 'Room added. Tap Allow on TV, then Allow on the set.' : 'Room added'); });
     }).catch((err) => toast(err.message));
+  }
+  if (btn('#statSave')) {
+    const rows = [...document.querySelectorAll('[data-statrow]')].map((r) => ({ id: r.dataset.id || undefined, name: $('.stName', r).value.trim(), host: $('.stHost', r).value.trim() })).filter((r) => r.host);
+    const thermostats = rows.map((r) => ({ id: r.id, name: r.name || r.host, host: r.host }));
+    return saveConfig({ thermostats }).then(() => { toast(thermostats.length ? `${thermostats.length} thermostat${thermostats.length === 1 ? '' : 's'} saved; connecting now` : 'No thermostats'); renderSheet(true); });
+  }
+  if (btn('#statScan')) {
+    $('#statScanOut').textContent = 'Looking on the Wi-Fi… about 10 seconds';
+    return api('/api/thermostats/scan').then((r) => {
+      const out = $('#statScanOut'); if (!out) return;
+      const found = (r.found || []);
+      out.innerHTML = found.length ? `Found: ${found.map((f) => `<button class="btn" type="button" data-statadd="${esc(f.host)}" data-statname="${esc(f.name || '')}">${esc(f.name || 'Thermostat')} · ${esc(f.host)}</button>`).join(' ')}` : `Nothing new answered on ${esc((r.networks || []).join(', ') || 'the Wi-Fi')}${(r.already || []).length ? ` (${r.already.length} already set up)` : ''}. A thermostat only answers after its Connection Type is set to Automation.`;
+    }).catch((err) => { const out = $('#statScanOut'); if (out) out.textContent = err.message; });
+  }
+  if ((el = btn('[data-statadd]'))) {
+    const rows = [...document.querySelectorAll('[data-statrow]')]; let row = rows.find((r) => !$('.stHost', r).value.trim());
+    if (!row) { row = rows[rows.length - 1].cloneNode(true); $('.stName', row).value = ''; $('.stHost', row).value = ''; $('#statRows').appendChild(row); }
+    $('.stHost', row).value = el.dataset.statadd; if (!$('.stName', row).value) $('.stName', row).value = el.dataset.statname;
+    el.disabled = true; toast('Added; press Save thermostats');
+    return;
   }
   if (btn('#discover')) {
     $('#discoverOut').textContent = 'Looking…';

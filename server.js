@@ -18,6 +18,7 @@ const TV = require('./tv');
 const CABLE = require('./cable');
 const GUIDE = require('./guide');
 const TUYA_MOD = require('./tuya');
+const APRILAIRE = require('./aprilaire');
 // The night timer's window, 10:00 PM – 5:30 AM house time (used at boot by publicState, so it lives up here).
 const SLEEP_TZ = process.env.GUIDE_TZ || 'America/New_York';
 const sleepFmt = new Intl.DateTimeFormat('en-US', { timeZone: SLEEP_TZ, hour: 'numeric', minute: 'numeric', hour12: false });
@@ -102,6 +103,14 @@ function saveConfig(cfg) { fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, nul
 let config = loadConfig();
 const demoPlugs = [{ id: 'p1', name: 'Nightstand Fan', room: 'Master', on: true, online: true, category: 'cz' }, { id: 'p2', name: 'Gym Lights', room: 'Gym', on: false, online: true, category: 'kg' }, { id: 'p3', name: 'Gym TV', room: 'Cable Boxes', on: true, online: true, category: 'cz' }, { id: 'p4', name: 'Living Room TV & Cable', room: 'Cable Boxes', on: true, online: true, category: 'cz' }, { id: 'p5', name: 'Front Door Lights', room: 'Outside', on: true, online: true, category: 'kg' }];
 const TUYA = TUYA_MOD.create({ dataDir: DATA_DIR, log, onChange: () => broadcast(), baseUrlOverride: process.env.TUYA_URL });
+// AprilAire thermostats (local automation link). In DEMO mode a fake set stands in.
+const demoStats = [
+  { id: 'attic', name: 'Attic', host: '192.168.1.40', port: 8000, status: 'ok', error: null, temp: 70, humidity: 41, outdoorTemp: 48, heat: 70, cool: 76, scale: 'F', deg: '°', mode: 2, modeName: 'Heat', fan: 2, fanName: 'Auto', running: 'Idle', heating: 0, cooling: 0, fanOn: false, hold: 0, holdName: 'Following the schedule', holdEnd: null, synced: true },
+  { id: 'bedroom-level', name: 'Bedroom Level', host: '192.168.1.41', port: 8000, status: 'ok', error: null, temp: 73, humidity: 44, outdoorTemp: 48, heat: 73, cool: 76, scale: 'F', deg: '°', mode: 2, modeName: 'Heat', fan: 2, fanName: 'Auto', running: 'Heating', heating: 2, cooling: 0, fanOn: true, hold: 1, holdName: 'Holding', holdEnd: Date.now() + 2 * 3600000, synced: true },
+  { id: 'living-level', name: 'Living Level', host: '192.168.1.42', port: 8000, status: 'ok', error: null, temp: 73, humidity: 43, outdoorTemp: 48, heat: 72, cool: 76, scale: 'F', deg: '°', mode: 2, modeName: 'Heat', fan: 2, fanName: 'Auto', running: 'Idle', heating: 0, cooling: 0, fanOn: false, hold: 0, holdName: 'Following the schedule', holdEnd: null, synced: true },
+];
+const STATS = APRILAIRE.create({ log, onChange: () => broadcast() });
+const statList = () => (DEMO ? demoStats : STATS.list());
 
 // ---------- rooms ----------------------------------------------------------
 // room = { cfg, box: <androidtv link | cable driver | null>, tv: <tv driver | null>, sonyLink: <androidtv link | null>, focus }
@@ -144,7 +153,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, sleepAllowed: sleepAllowed(), plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
+  return { demo: DEMO, sleepAllowed: sleepAllowed(), plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status(), thermostats: statList(), boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, people: config.people || [], identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------
@@ -437,6 +446,30 @@ app.post('/api/plugs/:id', wrap(async (req) => {
   const d = await TUYA.set(req.params.id, !!req.body.on); return { ok: true, plug: d };
 }));
 app.post('/api/plugs/refresh', wrap(async () => { await TUYA.refresh(); return TUYA.status(); }));
+// ---------- thermostats (AprilAire 8800-series, local automation link on port 8000) ----------
+app.get('/api/thermostats', (_req, res) => res.json({ thermostats: statList() }));
+app.get('/api/thermostats/scan', wrap(async () => (DEMO ? { found: [{ host: '192.168.1.43', name: 'Gym', mac: 'b4:e6:2d:10:20:30' }], already: demoStats.map((t) => ({ host: t.host, name: t.name, known: true })), networks: ['192.168.1.x'] } : STATS.scan())));
+app.post('/api/thermostats/:id', wrap(async (req) => {
+  const b = req.body || {}, id = req.params.id;
+  if (DEMO) {
+    const t = demoStats.find((x) => x.id === id); if (!t) throw err('unknown thermostat', 404);
+    if (b.mode) { t.mode = b.mode; t.modeName = STATS.MODES[b.mode]; t.running = b.mode === 1 ? 'Off' : 'Idle'; }
+    if (b.fan) { t.fan = b.fan; t.fanName = STATS.FANS[b.fan]; }
+    if (b.bump) { const k = b.bump.which === 'cool' ? 'cool' : 'heat'; t[k] += Math.sign(b.bump.delta || 1); t.hold = 1; t.holdName = 'Holding'; t.holdEnd = Date.now() + 2 * 3600000; }
+    if (b.heat != null) { t.heat = b.heat; } if (b.cool != null) { t.cool = b.cool; }
+    if (b.hold != null) { t.hold = b.hold; t.holdName = STATS.HOLDS[b.hold]; if (!b.hold) t.holdEnd = null; if (b.hold === 2) t.holdEnd = null; }
+    broadcast(); return { ok: true, thermostat: t };
+  }
+  let t;
+  if (b.mode) t = STATS.setMode(id, Number(b.mode));
+  if (b.fan) t = STATS.setFan(id, Number(b.fan));
+  if (b.bump) t = STATS.bump(id, b.bump.which, Number(b.bump.delta));
+  if (b.heat != null || b.cool != null) t = STATS.setPoints(id, { heat: b.heat != null ? Number(b.heat) : null, cool: b.cool != null ? Number(b.cool) : null });
+  if (b.hold != null) t = STATS.setHold(id, Number(b.hold));
+  if (b.refresh) t = STATS.refresh(id);
+  if (!t) throw err('nothing to do', 400);
+  return { ok: true, thermostat: t };
+}));
 app.get('/api/tuya', (_req, res) => res.json({ ...TUYA.status(), regions: TUYA.REGIONS }));
 app.post('/api/tuya', wrap(async (req) => { await TUYA.save(req.body || {}); const st = TUYA.status(); if (st.error) throw err(`Saved, but Tuya answered: ${st.error}`, 502); return { ok: true, ...st }; }));
 app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
@@ -688,6 +721,14 @@ app.post('/api/config', wrap(async (req) => {
     });
   }
   if (body.channelEnter) config.channelEnter = body.channelEnter;
+  if (Array.isArray(body.thermostats)) {
+    config.thermostats = body.thermostats.filter((t) => t && String(t.host || '').trim()).map((t) => {
+      let id = t.id || slug(t.name || t.host); const base = id; let n = 2;
+      while (!t.id && (config.thermostats || []).some((c) => c.id === id)) id = `${base}-${n++}`;
+      return { id, name: String(t.name || '').slice(0, 40), host: String(t.host).trim(), port: Number(t.port) || 8000 };
+    });
+    if (!DEMO) STATS.setList(config.thermostats);
+  }
   saveConfig(config); syncRooms(); broadcast();
   return publicState();
 }));
@@ -696,6 +737,6 @@ app.post('/api/config', wrap(async (req) => {
 let lastWhatsOn = '';
 const pushWhatsOn = () => { const now = JSON.stringify(GUIDE.nowOn(config.channels)); if (now !== lastWhatsOn) { lastWhatsOn = now; broadcast(); } };
 GUIDE.start(log, pushWhatsOn);
-if (!DEMO) TUYA.start();
+if (!DEMO) { TUYA.start(); STATS.setList(config.thermostats || []); }
 setInterval(pushWhatsOn, 60000).unref();
 app.listen(PORT, () => log(`Optimum Remote bridge on http://0.0.0.0:${PORT}${DEMO ? '  (DEMO mode)' : ''}`));

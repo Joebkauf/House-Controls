@@ -200,3 +200,18 @@ Options: `PORT` (default 4680), `DATA_DIR` (default `./data`), `DEMO=1`
   on first run and edited from the page after that.
 - `data/` — your config (box IPs, TV IPs, the Sony key, the Samsung token)
   and the pairing certs. Back this folder up; it is not in git.
+
+## Thermostats (AprilAire 8800-series)
+
+The **Thermostats** tab shows every AprilAire Wi-Fi thermostat in the house: the room temperature and humidity,
+whether it is heating, cooling or idle, the heat / cool setpoints with − and + buttons, Heat / Cool / Auto / Off,
+the fan, and the hold ("Holding until 6:00 PM · Back to the schedule"). The bridge talks to each thermostat
+directly on the house network (TCP port 8000, the thermostat's own automation protocol — `aprilaire.js`), so no
+cloud account is involved and the AprilAire phone app keeps working beside it.
+
+One-time setup, on each thermostat itself: open its **Contractor Menu** and set **Connection Type** to
+**Automation**. Then in the app: ⚙ Boxes & setup → Thermostats → **Find thermostats on the Wi-Fi** (anything
+answering on port 8000 is asked for its name), add the ones it finds, Save. Give each thermostat a fixed address
+in the router (a DHCP reservation) so it never moves. A thermostat takes one automation connection at a time, so
+only one bridge may be set up for it. The socket goes quiet after a while; the bridge reconnects every hour on
+purpose and after any drop.
