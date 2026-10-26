@@ -407,6 +407,7 @@ const wrap = (fn) => async (req, res) => {
 };
 
 app.get('/api/state', (_req, res) => res.json(publicState()));
+app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(GUIDE.schedule(config.channels, from, from + hours * 3600000)); });
 app.get('/api/find-show', (req, res) => res.json(GUIDE.findShow(config.channels, String(req.query.q || ''))));
 app.get('/api/whats-on', (_req, res) => res.json({ whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() }));
 app.get('/api/events', (req, res) => {

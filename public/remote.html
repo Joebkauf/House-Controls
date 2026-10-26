@@ -125,6 +125,28 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .inl input { font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); min-width: 160px; }
 .tile.add.inl { place-items: stretch; display: grid; gap: 8px; }
 .tile.showtile .name { font-size: clamp(17px, 1.7vw, 22px); }
+/* guide */
+.grid:has(.guide) { display: block; padding: 0; }
+.guide { --gch: 150px; position: relative; overflow: auto; max-height: 100%; background: var(--panel); border-radius: 16px; }
+.grow { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); min-height: 52px; }
+.grow.live .gch { box-shadow: inset 4px 0 0 var(--accent); }
+.gch { position: sticky; left: 0; z-index: 2; width: var(--gch); flex: none; background: var(--panel); display: grid; grid-template-columns: 24px 1fr auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center; padding: 6px 8px; text-align: left; border-right: 1px solid var(--line); border-left: 4px solid var(--bc, transparent); }
+.gch .logowrap { grid-row: 1 / 3; } .gch .logo { width: 22px; height: 22px; }
+.gch .gname { font-family: var(--display); font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gch .gnum { grid-column: 2; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gch .gstar { grid-column: 3; grid-row: 1; color: var(--accent); font-size: 14px; }
+.gch.lbl { display: block; padding: 10px 8px; font-size: 11px; }
+.gprogs { position: relative; flex: none; }
+.gprog { position: absolute; top: 5px; bottom: 5px; background: var(--tile); border-radius: 8px; padding: 4px 8px; text-align: left; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 1px; box-shadow: var(--shadow); font-size: 13px; line-height: 1.15; }
+.gprog span { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.gprog small { color: var(--muted); font-size: 11px; }
+.gprog.on { background: color-mix(in srgb, var(--accent) 18%, var(--tile)); box-shadow: inset 0 0 0 2px var(--accent); font-weight: 600; }
+.ghead { position: sticky; top: 0; z-index: 3; background: var(--panel); min-height: 36px; border-bottom: 2px solid var(--line); }
+.ghead .gch { z-index: 4; }
+.gticks { height: 36px; }
+.gtick { position: absolute; top: 10px; font-size: 12px; color: var(--muted); border-left: 1px solid var(--line); padding-left: 6px; height: 26px; }
+.gnow { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; pointer-events: none; }
+@media (max-width: 640px) { .guide { --gch: 112px; } .gch { grid-template-columns: 18px 1fr auto; } .gch .logo { width: 18px; height: 18px; } .gch .gname { font-size: 13px; } }
 
 /* pad */
 .pad { background: var(--panel); border-radius: 18px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; overflow-y: auto; }
@@ -303,7 +325,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const GROUPS = [['apps','Apps'],['all','All channels'],['fav','Favorites'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
+const GROUPS = [['apps','Apps'],['all','All channels'],['fav','Favorites'],['guide','Guide'],['news','News'],['sports','Sports'],['entertainment','Entertainment'],['movies','Movies'],['kids','Kids']];
 const APP_NAMES = [
   [/altice|optimum/i, 'Optimum TV'], [/netflix/i, 'Netflix'], [/youtube\.tv/i, 'YouTube TV'], [/youtube/i, 'YouTube'],
   [/amazon/i, 'Prime Video'], [/hulu/i, 'Hulu'], [/disney/i, 'Disney+'], [/hbo|max/i, 'Max'], [/peacock/i, 'Peacock'],
@@ -504,6 +526,11 @@ function demoState() {
 }
 function demoSave() { try { localStorage.setItem('or.demo4', JSON.stringify(state)); } catch {} }
 async function demoApi(path, body) {
+  if (path.startsWith('/api/guide')) {
+    const from = Math.floor(Date.now() / 1800000) * 1800000, to = from + 3 * 3600000;
+    const shows = ['Evening News', 'Wheel of Fortune', 'Jeopardy!', 'Movie: Top Gun', 'Friends', 'SportsCenter', 'Local News at 11', 'House Hunters', 'Chopped', 'Law & Order'];
+    return { from, to, channels: state.channels.filter((c) => c.number).slice(0, 14).map((c, i) => { const programs = []; let t = from - 1800000; let k = i; while (t < to) { const len = [30, 60, 30, 90, 60][k % 5] * 60000; programs.push({ title: shows[k % shows.length], start: t, end: t + len }); t += len; k++; } return { name: c.name, number: c.number, programs }; }) };
+  }
   if (path.startsWith('/api/find-show')) {
     const q = decodeURIComponent(path.split('q=')[1] || '').toLowerCase(); const t = Date.now();
     if (/friend/.test(q)) return { now: [{ title: 'Friends', channel: 'TBS', number: 39, start: t - 600000, end: t + 1200000 }], next: [{ title: 'Friends', channel: 'TBS', number: 39, start: t + 1200000, end: t + 3000000 }] };
@@ -624,6 +651,7 @@ function render() {
   // grid
   const list = state.channels.map((c, i) => ({ ...c, i })).filter((c) => tab === 'all' || (tab === 'fav' ? isFav(c) : (c.groups || []).includes(tab)));
   const live = b && b.lastChannel;
+  if (tab === 'guide') { renderGuide(b); } else
   if (tab === 'apps') {
     const tvOnly = b && b.boxType !== 'androidtv', samsungOnly = tvOnly && b.tv && b.tv.brand === 'samsung';
     setHTML($('#grid'), (state.apps || []).map((a) => {
@@ -686,6 +714,41 @@ function refreshShows() {
   Promise.all(stale.map((n) => api(`/api/find-show?q=${encodeURIComponent(n)}`).then((d) => { showInfo[n] = { at: Date.now(), data: d }; }).catch(() => { showInfo[n] = { at: Date.now(), data: showInfo[n].data || { now: [], next: [] } }; }))).then(() => { if (tab === 'fav') render(); });
 }
 const fmtWhen = (t) => { const d = new Date(t), now = new Date(); const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); return d.toDateString() === now.toDateString() ? `at ${time}` : `tomorrow at ${time}`; };
+// ---------- the guide: a time grid of what is on ----------
+let guideData = null, guideAt = 0, guideFetching = false;
+function loadGuide() {
+  if (guideFetching || (guideData && Date.now() - guideAt < 5 * 60000)) return;
+  guideFetching = true;
+  api('/api/guide?hours=3').then((d) => { guideData = d; guideAt = Date.now(); }).catch(() => { guideData = guideData || { from: Date.now(), to: Date.now(), channels: [] }; guideAt = Date.now(); }).then(() => { guideFetching = false; if (tab === 'guide') render(); });
+}
+function renderGuide(b) {
+  loadGuide();
+  const g = $('#grid');
+  if (!guideData) { setHTML(g, '<p class="empty">Reading the listings…</p>'); return; }
+  const now = Date.now(), from = Math.floor(now / 1800000) * 1800000, to = from + 3 * 3600000, PX = 4; // px per minute
+  const width = (to - from) / 60000 * PX;
+  const favSet = new Set(state.channels.filter((c) => isFav(c)).map((c) => norm0(c.name)));
+  const rows = guideData.channels.slice().sort((a, z) => (favSet.has(norm0(z.name)) - favSet.has(norm0(a.name))) || (Number(a.number) - Number(z.number)));
+  const live = b && b.lastChannel;
+  const ticks = []; for (let t = from; t < to; t += 1800000) ticks.push(`<span class="gtick" style="left:${(t - from) / 60000 * PX}px">${new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>`);
+  const body = rows.map((ch) => {
+    const bd = brand(ch.name);
+    const blocks = ch.programs.filter((p) => p.end > from && p.start < to).map((p) => {
+      const l = Math.max(0, (p.start - from) / 60000 * PX), r = Math.min(width, (p.end - from) / 60000 * PX);
+      const on = p.start <= now && p.end > now;
+      return `<button class="gprog ${on ? 'on' : ''}" style="left:${l}px;width:${Math.max(24, r - l - 3)}px" data-tune="${esc(ch.number)}" type="button" title="${esc(p.title)}"><span>${esc(p.title)}</span>${on ? '' : `<small>${new Date(p.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</small>`}</button>`;
+    }).join('');
+    return `<div class="grow ${live && String(live) === String(ch.number) ? 'live' : ''}">
+      <button class="gch" data-tune="${esc(ch.number)}" type="button" style="--bc:${bd[0]}">${logoImg(bd, ch.name)}<span class="gname">${esc(ch.name)}</span><span class="gnum">CH ${esc(ch.number)}</span>${favSet.has(norm0(ch.name)) ? '<span class="gstar">★</span>' : ''}</button>
+      <div class="gprogs" style="width:${width}px">${blocks}</div>
+    </div>`;
+  }).join('');
+  setHTML(g, `<div class="guide">
+    <div class="grow ghead"><div class="gch lbl">${rows.length} channels${favSet.size ? ` · ★ ${esc(personName() === 'the house' ? 'house' : personName())} first` : ''}</div><div class="gprogs gticks" style="width:${width}px">${ticks.join('')}</div></div>
+    ${body || '<p class="empty">No listings yet for your channels. The bridge reads them every half hour.</p>'}
+    <div class="gnow" style="left:calc(var(--gch) + ${(now - from) / 60000 * PX}px)"></div>
+  </div>`);
+}
 function favHeader() {
   const people = state.people || [];
   const chips = `<div class="people"><span class="lbl">Whose favorites</span>
