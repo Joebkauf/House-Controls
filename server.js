@@ -49,8 +49,42 @@ function loadConfig() {
   cfg.channels = cfg.channels || [];
   cfg.channelEnter = cfg.channelEnter || 'none'; // 'none' | 'enter' | 'center'
   if (!cfg.apps) { cfg.apps = EXAMPLE().apps; saveConfig(cfg); }
+  if (mergeLineup(cfg)) saveConfig(cfg);
   return cfg;
 }
+// The house lineup fills itself in on every boot: the saved lineup (the first one in public/lineups,
+// or the one the wall was built from) gives a number to every channel still missing one and adds
+// channels it has never added before. A number typed by hand is never overwritten, and a channel
+// someone removed stays removed. Nobody has to find a Load button.
+function mergeLineup(cfg) {
+  const dir = path.join(__dirname, 'public', 'lineups');
+  let index, lineup;
+  try { index = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')); } catch { return false; }
+  const entry = (index.lineups || []).find((l) => l.file === cfg.lineup) || (index.lineups || [])[0];
+  if (!entry) return false;
+  try { lineup = JSON.parse(fs.readFileSync(path.join(dir, entry.file), 'utf8')); } catch (e) { log('[lineup]', entry.file, e.message); return false; }
+  const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const seen = new Set((cfg.lineupNames || []).map(norm));
+  let changed = 0, added = 0;
+  for (const c of lineup.channels || []) {
+    if (!c.name) continue;
+    const hit = cfg.channels.find((e) => norm(e.name) === norm(c.name));
+    if (hit) {
+      if ((hit.number == null || hit.number === '') && c.number) { hit.number = c.number; changed++; }
+      if (c.guide && !hit.guide) { hit.guide = c.guide; changed++; }
+    } else if (!seen.has(norm(c.name))) {
+      cfg.channels.push({ name: c.name, number: c.number ?? null, groups: Array.isArray(c.groups) && c.groups.length ? c.groups : ['entertainment'], fav: false, ...(c.guide ? { guide: c.guide } : {}) });
+      added++;
+    }
+    if (!seen.has(norm(c.name))) { seen.add(norm(c.name)); changed++; }
+  }
+  cfg.lineupNames = [...seen];
+  if (cfg.lineup !== entry.file) { cfg.lineup = entry.file; changed++; }
+  if (changed || added) log(`[lineup] ${entry.file}: ${added} channels added, numbers filled where missing`);
+  return changed + added > 0;
+}
+let VERSION = 'dev';
+try { VERSION = require('child_process').execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname, timeout: 5000 }).toString().trim(); } catch {}
 function saveConfig(cfg) { fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n'); }
 let config = loadConfig();
 
@@ -93,7 +127,7 @@ function publicRoom(r) {
   return out;
 }
 function publicState() {
-  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status() };
+  return { demo: DEMO, boxes: [...rooms.values()].map(publicRoom), channels: config.channels, apps: config.apps, channelEnter: config.channelEnter, identify: publicIdentify(), whatsOn: GUIDE.nowOn(config.channels), guide: GUIDE.status(), version: VERSION, lineup: config.lineup || null };
 }
 
 // ---------- Android TV link (Stream box, any Android TV box, a Sony TV) ----------

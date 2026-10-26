@@ -743,7 +743,7 @@ function renderSheet() {
     </div>
     <p>Leave on "Just the digits" unless the box waits for a confirm key after the number.</p>
     <h3>Bridge</h3>
-    <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : 'Pulls the newest version and restarts (about a minute)'}</span></div>
+    <div><button class="btn" id="updateBridge" type="button">Update the bridge</button> <span class="lbl" id="updateOut">${standalone ? '' : `Running version ${esc(state.version || '?')}${state.lineup ? ` · lineup ${esc(state.lineup.replace('.json', ''))}` : ''}. Pulls the newest version and restarts (about a minute).`}</span></div>
     <div class="row2"><span></span><button class="btn pri" id="closeSheet" type="button">Done</button></div>
   </div></div>`;
 }
