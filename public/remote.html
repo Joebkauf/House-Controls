@@ -166,11 +166,11 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.add.inl { place-items: stretch; display: grid; gap: 8px; }
 .tile.showtile .name { font-size: clamp(17px, 1.7vw, 22px); }
 /* guide */
-.grid:has(.guide), .grid:has(.gbar) { display: block; padding: 0; }
-.gbar { display: flex; gap: 8px; align-items: center; padding: 0 0 8px; }
+.grid:has(.guide) { display: block; padding: 0; }
+.gbar { display: flex; gap: 8px; align-items: center; flex: none; } .gbar[hidden] { display: none; }
 .gbar input { flex: 1 1 auto; min-width: 0; background: var(--tile); border: 0; border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--fg); box-shadow: var(--shadow); }
 .gbar .gnav { display: flex; gap: 4px; flex: none; } .gbar .gnav .btn { padding: 9px 10px; }
-.gresults { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.gresults { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; grid-column: 1 / -1; }
 .gres .show .lb { margin-right: 6px; display: inline !important; }
 @media (max-width: 640px) { .gbar { flex-wrap: wrap; } .gbar input { flex-basis: 100%; } .gbar .gnav { width: 100%; justify-content: space-between; } .gbar .gnav .btn { flex: 1; } .gresults { grid-template-columns: 1fr 1fr; } }
 .guide { --gch: 150px; position: relative; overflow: auto; max-height: 100%; background: var(--panel); border-radius: 16px; }
@@ -321,6 +321,7 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 
   <section class="main">
     <nav class="tabs" id="tabs"></nav>
+    <div class="gbar" id="guideBar" hidden><input id="gq" type="search" placeholder="Search the listings: a show, a movie, a team" autocomplete="off" enterkeyhint="search"><span class="gnav"><button class="btn" data-gnav="-180" type="button" aria-label="Three hours earlier">◀</button><button class="btn" data-gnav="now" type="button">Now</button><button class="btn" data-gnav="180" type="button" aria-label="Three hours later">▶</button><button class="btn" data-gnav="1440" type="button">Next day ▶</button></span></div>
     <div class="grid" id="grid"></div>
   </section>
 
@@ -796,6 +797,7 @@ function render() {
   // grid
   const list = tabChannels();
   const live = b && b.lastChannel;
+  const gbar = $('#guideBar'); if (gbar) gbar.hidden = tab !== 'guide';
   if (tab === 'house') { renderPlugs(); } else
   if (tab === 'heat') { renderStats(); } else
   if (tab === 'guide') { renderGuide(b); } else
@@ -948,15 +950,14 @@ function guideSearch(q) {
 function renderGuide(b) {
   loadGuide();
   const g = $('#grid');
-  // the toolbar is the grid's first child and never changes, so a redraw keeps the search box and its focus
-  const bar = `<div class="gbar"><input id="gq" type="search" placeholder="Search the listings: a show, a movie, a team" autocomplete="off" enterkeyhint="search"><span class="gnav"><button class="btn" data-gnav="-180" type="button" aria-label="Three hours earlier">◀</button><button class="btn" data-gnav="now" type="button">Now</button><button class="btn" data-gnav="180" type="button" aria-label="Three hours later">▶</button><button class="btn" data-gnav="1440" type="button">Next day ▶</button></span></div>`;
+  // the search box and the ◀ Now ▶ buttons live in #guideBar, outside the grid: no redraw ever touches them
+  const bar = '';
   if (guideQuery.trim()) {
     const r = guideResults; const hits = r ? [...r.now.map((h) => ({ ...h, on: true })), ...r.next] : null;
-    setHTML(g, bar + `<div class="gresults">${!hits ? '<p class="empty">Looking…</p>' : !hits.length ? `<p class="empty">Nothing called “${esc(guideQuery.trim())}” in the ${state.guide && state.guide.source === 'sd' ? 'next week' : 'free listings'}.</p>` : hits.map((h) => `<button class="tile gres ${h.on ? 'live' : ''}" data-tune="${esc(h.number)}" type="button"><span class="top"><span class="name">${esc(h.title)}</span></span><span class="show">${h.on ? '<span class="lb">On now</span>' : `<span class="lb">${esc(fmtWhen(h.start))}</span>`}${esc(h.channel)} · CH ${esc(h.number)}${h.new ? ' · new' : ''}</span></button>`).join('')}</div>`);
-    const inp = $('#gq'); if (inp && inp.value !== guideQuery) inp.value = guideQuery;
+    setHTML(g, `<div class="gresults">${!hits ? '<p class="empty">Looking…</p>' : !hits.length ? `<p class="empty">Nothing called “${esc(guideQuery.trim())}” in the ${state.guide && state.guide.source === 'sd' ? 'next week' : 'free listings'}.</p>` : hits.map((h) => `<button class="tile gres ${h.on ? 'live' : ''}" data-tune="${esc(h.number)}" type="button"><span class="top"><span class="name">${esc(h.title)}</span></span><span class="show">${h.on ? '<span class="lb">On now</span>' : `<span class="lb">${esc(fmtWhen(h.start))}</span>`}${esc(h.channel)} · CH ${esc(h.number)}${h.new ? ' · new' : ''}</span></button>`).join('')}</div>`);
     return;
   }
-  if (!guideData) { setHTML(g, bar + '<p class="empty">Reading the listings…</p>'); return; }
+  if (!guideData) { setHTML(g, '<p class="empty">Reading the listings…</p>'); return; }
   const now = Date.now(), from = guideData.from || Math.floor(now / 1800000) * 1800000, to = guideData.to || from + 3 * 3600000, PX = 4; // px per minute
   const dayLabel = new Date(from).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) + ' · ' + new Date(from).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '–' + new Date(to).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const width = (to - from) / 60000 * PX;
@@ -976,12 +977,11 @@ function renderGuide(b) {
       <div class="gprogs" style="width:${width}px">${blocks}</div>
     </div>`;
   }).join('');
-  setHTML(g, bar + `<div class="guide">
+  setHTML(g, `<div class="guide">
     <div class="grow ghead"><div class="gch lbl">${esc(dayLabel)}<br>${rows.length} channels${favSet.size ? ` · ★ ${esc(personName() === 'the house' ? 'house' : personName())} first` : ''}</div><div class="gprogs gticks" style="width:${width}px">${ticks.join('')}</div></div>
     ${body || '<p class="empty">No listings for this time. The bridge reads a week ahead when Schedules Direct is signed in.</p>'}
     ${now >= from && now < to ? `<div class="gnow" style="left:calc(var(--gch) + ${(now - from) / 60000 * PX}px)"></div>` : ''}
   </div>`);
-  const inp = $('#gq'); if (inp && inp.value !== guideQuery) inp.value = guideQuery;
 }
 function favHeader() {
   const people = state.people || [];
