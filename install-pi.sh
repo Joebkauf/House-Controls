@@ -26,7 +26,8 @@ echo "Node $(node -v)"
 
 if [ -d "$DIR/.git" ]; then
   say "Updating Optimum Remote in $DIR"
-  sudo git -C "$DIR" pull --ff-only
+  sudo git -C "$DIR" fetch --quiet origin main
+  sudo git -C "$DIR" reset --hard --quiet origin/main
 else
   say "Downloading Optimum Remote into $DIR"
   sudo git clone --quiet "$REPO" "$DIR"

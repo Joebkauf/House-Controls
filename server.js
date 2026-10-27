@@ -729,9 +729,14 @@ app.post('/api/update', wrap(async () => {
   const { execFile } = require('child_process');
   const run = (cmd, args) => new Promise((resolve, reject) => execFile(cmd, args, { cwd: __dirname, timeout: 240000 }, (e, out, errOut) => (e ? reject(new Error((errOut || e.message).trim().split('\n').pop())) : resolve(out))));
   const before = (await run('git', ['rev-parse', '--short', 'HEAD'])).trim();
-  await run('git', ['pull', '--ff-only']);
+  // This checkout is a deployment, nothing is hand-edited here (data/ is ignored): fetch and move to GitHub's main
+  // outright. A plain pull refused to move when npm had rewritten package-lock.json on the Pi.
+  try { await run('git', ['fetch', '--quiet', 'origin', 'main']); }
+  catch (e) { log('[update] fetch failed:', e.message); throw err(`Could not reach GitHub: ${e.message}`, 502); }
+  await run('git', ['reset', '--hard', '--quiet', 'origin/main']);
   const after = (await run('git', ['rev-parse', '--short', 'HEAD'])).trim();
-  if (before === after) return { ok: true, message: 'Already on the newest version.' };
+  log('[update]', before, '→', after);
+  if (before === after) return { ok: true, message: `Already on the newest version (${after}).` };
   await run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--loglevel=error']);
   setTimeout(() => { log('[update] restarting after update', before, '→', after); process.exit(0); }, 500);
   return { ok: true, message: `Updated ${before} → ${after}. Restarting…` };
