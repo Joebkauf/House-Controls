@@ -151,7 +151,7 @@ function publicRoom(r) {
     irLearning: type === 'ir' && b ? b.learning : null,
     tv: r.cfg.tv && r.cfg.tv.brand ? {
       brand: r.cfg.tv.brand, host: r.cfg.tv.host, route: r.cfg.tv.route || 'tv', hasPsk: !!r.cfg.tv.psk,
-      status: tv ? tv.status : 'unknown', powered: tv ? tv.powered : null, frame: !!(tv && tv.frame),
+      status: tv ? tv.status : 'unknown', powered: tv ? tv.powered : null, frame: !!(tv && tv.frame), artMode: !!(tv && tv.artMode),
       model: tv && tv.model || null, error: tv && tv.error || null, paired: !!(tv && (tv.brand === 'sony' || tv.token)), headphone: tv && tv.headphone || null,
       linkStatus: r.sonyLink ? r.sonyLink.status : null, linkNeedsCode: !!(r.sonyLink && r.sonyLink.needsCode), app: r.sonyLink ? r.sonyLink.app : null,
     } : null,
@@ -369,6 +369,8 @@ async function sendKey(r, name, within) {
     }
     r.box.sendKey(name); return; // an empty wall: the raw key, straight to the box
   }
+  // Power is the whole room: anything off or asleep (a Frame in Art mode counts) → everything on; all on → all off.
+  if ((name === 'POWER' || name === 'TV_POWER') && r.tv) { await roomPower(r); broadcast(); return; }
   if (tvAct && r.tv && (tvRouted(r) || name === 'TV_POWER')) {
     if (!r.tv[tvAct]) throw err(`the ${r.tv.brand} TV cannot do ${name}`);
     try { await r.tv[tvAct](); broadcast(); return; }
@@ -527,6 +529,16 @@ app.get('/api/events', (req, res) => {
 
 // ---------- the night timer: one touch, everything in the room off in 90 minutes ----------
 // Only offered between 10:00 PM and 5:30 AM house time; a tap outside that window is refused.
+function roomIsOn(r) {
+  const tvOn = !r.tv || (r.tv.powered !== false && !r.tv.artMode);
+  const boxOn = !(r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready') || r.box.powered !== false;
+  return tvOn && boxOn;
+}
+async function roomPower(r) {
+  if (roomIsOn(r)) return roomOff(r);
+  if (r.tv && r.tv.powerOn) { try { await r.tv.powerOn(); } catch (e) { r.tv.error = e.message; log(`[${r.cfg.id}] TV on failed: ${e.message}`); } }
+  try { if (r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready' && r.box.powered === false) r.box.sendKey('POWER'); } catch (e) { log(`[${r.cfg.id}] box on failed: ${e.message}`); }
+}
 async function roomOff(r) {
   try { if (r.tv && r.tv.powerOff) await r.tv.powerOff(); } catch (e) { log(`[sleep] ${r.cfg.id} TV off failed: ${e.message}`); }
   try { if (r.cfg.boxType === 'androidtv' && r.box && r.box.status === 'ready' && r.box.powered !== false) r.box.sendKey('POWER'); } catch (e) { log(`[sleep] ${r.cfg.id} box off failed: ${e.message}`); }

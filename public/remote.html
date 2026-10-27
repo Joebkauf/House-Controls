@@ -1009,11 +1009,12 @@ function statusWord(x) {
   if (x.status === 'no-box') return x.tv ? tvStatusWord(x.tv) : 'Nothing set up yet';
   if (x.boxType === 'ir') return { ready: 'Blaster connected', offline: 'Blaster not reachable', unknown: 'Checking…' }[x.status] || x.status;
   if (x.boxType === 'directv') return { ready: x.powered === false ? 'Genie in standby' : 'Genie connected', offline: 'Genie not reachable', unknown: 'Checking…' }[x.status] || x.status;
+  if (x.status === 'ready' && x.tv && x.tv.artMode) return 'Art mode · Power puts the TV on';
   return { ready: x.powered === false ? 'Standby' : 'Connected', pairing: x.needsCode ? 'Enter the TV code' : 'Pairing…', connecting: 'Connecting…',
     offline: 'Not reachable', 'needs-pairing': 'Not paired yet' }[x.status] || x.status;
 }
 function tvStatusWord(tv) {
-  return { ok: tv.powered === false ? 'TV off' : 'TV connected', 'needs-allow': 'Press Allow on the TV', 'needs-psk': 'TV refused the Pre-Shared Key',
+  return { ok: tv.powered === false ? 'TV off' : tv.artMode ? 'Art mode · Power puts the TV on' : 'TV connected', 'needs-allow': 'Press Allow on the TV', 'needs-psk': 'TV refused the Pre-Shared Key',
     denied: 'TV denied the connection', offline: 'TV not reachable', unknown: 'TV: checking…', 'needs-pairing': 'Pair the TV: tap Pair Sony TV' }[tv.status] || tv.status;
 }
 function nowText(b) {

@@ -101,7 +101,7 @@ function samsung(cfg, onChange, saveToken) {
   const port = cfg.port || 8002;
   const scheme = cfg.plainWs ? 'ws' : 'wss';
   let ws = null, ready = null, idle = null;
-  const t = { brand: 'samsung', frame: !!cfg.frame, status: 'unknown', powered: null, volume: null, mac: cfg.mac || null, token: cfg.token || null };
+  const t = { brand: 'samsung', frame: !!cfg.frame, status: 'unknown', powered: null, volume: null, mac: cfg.mac || null, token: cfg.token || null, artMode: null, artAt: 0 };
 
   function connect() {
     if (ready) return ready;
@@ -129,6 +129,40 @@ function samsung(cfg, onChange, saveToken) {
     ready.catch(() => { ready = null; });
     return ready;
   }
+  // The Frame's Art mode has its own channel. "on" = the picture frame is showing (the TV reports PowerState on
+  // all the same); set_artmode_status off puts the TV picture back without touching the power key.
+  function artRequest(request, value, waitFor) {
+    return new Promise((resolve, reject) => {
+      const url = `${scheme}://${cfg.host}:${port}/api/v2/channels/com.samsung.art-app?name=${name}${t.token ? `&token=${t.token}` : ''}`;
+      const sock = new WebSocket(url, { rejectUnauthorized: false, handshakeTimeout: 4000 });
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const done = (err, val) => { clearTimeout(timer); try { sock.close(); } catch {} err ? reject(err) : resolve(val); };
+      const timer = setTimeout(() => done(new Error('art channel did not answer')), 6000);
+      sock.on('message', (buf) => {
+        let msg = null; try { msg = JSON.parse(buf.toString()); } catch { return; }
+        if (msg.event === 'ms.channel.connect' || msg.event === 'ms.channel.ready') {
+          if (sock.__sent) return; sock.__sent = true;
+          sock.send(JSON.stringify({ method: 'ms.channel.emit', params: { event: 'art_app_request', to: 'host', data: JSON.stringify({ request, ...(value !== undefined ? { value } : {}), id }) } }));
+          if (!waitFor) setTimeout(() => done(null, true), 400);
+        } else if (msg.event === 'd2d_service_message') {
+          let d = null; try { d = JSON.parse(msg.data); } catch { return; }
+          if (d && d.event === waitFor) done(null, d);
+        } else if (msg.event === 'ms.channel.unauthorized') done(new Error('the TV denied the art channel'));
+      });
+      sock.on('error', (e) => done(new Error(`art channel: ${e.code || e.message}`)));
+    });
+  }
+  async function artStatus() {
+    if (!t.frame || !t.token) return t.artMode;
+    try { const d = await artRequest('get_artmode_status', undefined, 'artmode_status'); t.artMode = d.value === 'on'; }
+    catch (e) { t.artMode = null; }
+    t.artAt = Date.now();
+    return t.artMode;
+  }
+  async function setArtMode(on) {
+    await artRequest('set_artmode_status', on ? 'on' : 'off');
+    t.artMode = on; onChange && onChange();
+  }
   function touchIdle() { clearTimeout(idle); idle = setTimeout(() => { try { ws && ws.close(); } catch {} ws = null; ready = null; }, 60000); }
   async function key(code, cmd = 'Click') {
     const sock = await connect();
@@ -146,8 +180,9 @@ function samsung(cfg, onChange, saveToken) {
       t.model = d.modelName || d.name;
       if (t.status !== 'needs-allow' && t.status !== 'denied') t.status = t.token ? 'ok' : 'needs-allow';
       t.error = null;
+      if (t.frame && t.powered && t.token && Date.now() - t.artAt > 20000) await artStatus(); else if (!t.powered) t.artMode = false;
     } catch (e) {
-      t.status = 'offline'; t.powered = false; t.error = e.message;
+      t.status = 'offline'; t.powered = false; t.artMode = false; t.error = e.message;
     }
     onChange && onChange();
     return t;
@@ -157,7 +192,20 @@ function samsung(cfg, onChange, saveToken) {
     volumeDown: () => key('KEY_VOLDOWN'),
     setVolume: null, // Samsung does not report its level over this channel
     mute: () => key('KEY_MUTE'),
-    powerOn: async () => { await wakeOnLan(t.mac); await sleep(1500); return poll(); },
+    // On: wake it if it is off; a Frame then comes up in Art mode, so take it to the TV picture as well.
+    powerOn: async () => {
+      if (t.powered === false) { await wakeOnLan(t.mac); await sleep(1500); await poll(); }
+      if (t.frame) {
+        if (t.artMode !== false) {
+          try { await setArtMode(false); }
+          catch (e) { await key('KEY_POWER'); } // the art channel is not answering: a short power press also swaps Art mode → TV
+          await sleep(1500); t.artAt = 0; await poll();
+        }
+      }
+      return t;
+    },
+    setArtMode, artStatus,
+    showingTv: () => t.powered !== false && !t.artMode,
     // A Frame's power key: a short press swaps TV ↔ Art mode, a HELD press turns it off.
     // We never want Art mode, so a Frame is always turned off with a held press, and
     // if it still reports "on" (= it slipped into Art mode) we hold again, longer.
@@ -170,7 +218,7 @@ function samsung(cfg, onChange, saveToken) {
       }
       return t;
     },
-    powerToggle: () => (t.powered === false ? t.powerOn() : t.powerOff()),
+    powerToggle: () => (t.powered === false || t.artMode ? t.powerOn() : t.powerOff()),
     sendKey: (code) => key(code),
     launchApp: async (appId) => {
       const r = await fetchJson(`http://${cfg.host}:${cfg.infoPort || 8001}/api/v2/applications/${appId}`, { method: 'POST' }, 4000);
