@@ -67,8 +67,12 @@ function create({ dataDir, log = () => {}, onChange = () => {} }) {
   async function headends(zip) {
     const list = await call('GET', '/headends', { query: { country: 'USA', postalcode: String(zip || '').replace(/\D/g, '').slice(0, 5) } });
     const out = [];
-    for (const h of list || []) for (const l of h.lineups || []) out.push({ id: l.lineup, name: `${l.name}${h.location ? ` · ${h.location}` : ''}`, transport: h.transport, headend: h.headend });
-    out.sort((a, b) => (/optimum|cablevision|altice/i.test(b.name) - /optimum|cablevision|altice/i.test(a.name)) || (a.transport === 'Cable' ? -1 : 1) - (b.transport === 'Cable' ? -1 : 1) || a.name.localeCompare(b.name));
+    // The id's last part is the device: -X is the digital box's full lineup (hundreds of channels); -DEFAULT is the
+    // analog / basic one (the first pick here landed on an 85-channel lineup with no HBO, no Golf, no Bloomberg).
+    const kind = (id) => (/-X$/i.test(id) ? 'Digital cable box · the full lineup' : /-DEFAULT$/i.test(id) ? 'Analog / basic · a short lineup' : /-[A-Z0-9]+$/.test(id) ? id.split('-').pop() : '');
+    for (const h of list || []) for (const l of h.lineups || []) out.push({ id: l.lineup, name: `${l.name}${h.location ? ` · ${h.location}` : ''}`, transport: h.transport, headend: h.headend, kind: kind(l.lineup) });
+    const want = (x) => (/optimum|cablevision|altice/i.test(x.name) ? 2 : 0) + (x.transport === 'Cable' ? 1 : 0) + (/-X$/i.test(x.id) ? 4 : 0);
+    out.sort((a, b) => want(b) - want(a) || a.name.localeCompare(b.name));
     return out;
   }
   async function useLineup(id, name) {
