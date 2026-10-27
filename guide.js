@@ -110,7 +110,7 @@ function schedule(channels, from, to) {
 }
 // Where a show is on: every airing of it (today, yesterday, tomorrow) on a channel that is on the wall.
 // { now: [...airing right now], next: [...coming up] }, each { title, channel, number, start, end }.
-function findShow(channels, q, at = Date.now()) {
+function findShow(channels, q, at = Date.now(), limit = 6) {
   const want = norm(q); if (!want) return { now: [], next: [] };
   const byNet = netMap(channels);
   // Tiers: the exact title ("Friends" is Friends, not Fox & Friends) → a title that starts with it
@@ -126,7 +126,7 @@ function findShow(channels, q, at = Date.now()) {
   }
   const hits = tiers.find((list) => list.length) || [];
   hits.sort((a, b) => a.start - b.start);
-  return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, 6) };
+  return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, limit) };
 }
 
 module.exports = { start, refresh, nowOn, findShow, schedule, norm, ALIASES, status: () => ({ loaded: [...state.days.values()].reduce((n, d) => n + d.rows.length, 0), fetchedAt: state.fetchedAt, error: state.error }) };

@@ -11,8 +11,10 @@ const BASE = process.env.SD_URL || 'https://json.schedulesdirect.org/20141201';
 const UA = 'HouseControls/1.0 (+https://github.com/Joebkauf/House-Controls)';
 const TZ = process.env.GUIDE_TZ || 'America/New_York';
 const REFRESH_MS = 6 * 60 * 60 * 1000;   // schedules twice a shop day is plenty; the account has daily limits
-const DAYS = 3;                          // today and the two days after; yesterday too, for shows across midnight
+const DAYS = 7;                          // a week ahead (the guide pages forward by day); yesterday too, for shows across midnight
 const norm = (s) => String(s || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+// a station's name as the wall would say it: "HBO (East) HD" → hbo, "Showtime East" → showtime, "AMC HD" → amc
+const stationKey = (s) => norm(String(s || '').replace(/\(.*?\)/g, ' ').replace(/\b(east|west|pacific|hd|hdtv|sd)\b/gi, ' '));
 const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
 const dayKey = (d) => dayFmt.format(d);
 
@@ -141,7 +143,7 @@ function create({ dataDir, log = () => {}, onChange = () => {} }) {
     const byNum = new Map(), byName = new Map();
     for (const s of cache.stations) {
       if (s.number && !byNum.has(s.number)) byNum.set(s.number, s);
-      for (const k of [norm(s.callsign), norm(s.name), norm(s.affiliate)]) if (k && !byName.has(k)) byName.set(k, s);
+      for (const k of [norm(s.callsign), norm(s.name), stationKey(s.name), stationKey(s.callsign), norm(s.affiliate), stationKey(s.name).replace(/(channel|network|tv)$/, '')]) if (k && !byName.has(k)) byName.set(k, s);
     }
     const out = new Map(); // channel key -> station
     for (const c of channels || []) {
@@ -177,7 +179,7 @@ function create({ dataDir, log = () => {}, onChange = () => {} }) {
     }
     return { from, to, channels: out };
   }
-  function findShow(channels, q, at = Date.now()) {
+  function findShow(channels, q, at = Date.now(), limit = 6) {
     const want = norm(q); if (!want || !ready()) return { now: [], next: [] };
     const oneWord = !/\s/.test(String(q).trim());
     const byStation = new Map(); for (const [key, s] of stationFor(channels)) if (!byStation.has(s.stationID)) byStation.set(s.stationID, (channels || []).find((c) => norm(c.name) === key));
@@ -191,13 +193,13 @@ function create({ dataDir, log = () => {}, onChange = () => {} }) {
     }
     const hits = tiers.find((l) => l.length) || [];
     hits.sort((a, b) => a.start - b.start);
-    return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, 6) };
+    return { now: hits.filter((h) => h.start <= at && h.end > at), next: hits.filter((h) => h.start > at).slice(0, limit) };
   }
   // The wall's numbers came from a 2015 printout; the lineup is today's. Match each wall channel to a station by
   // NAME only and report where the number differs (or no station has that name). The caller decides what to change.
   function checkNumbers(channels, aliases = {}) {
     const byName = new Map();
-    for (const s of cache.stations) for (const k of [norm(s.callsign), norm(s.name), norm(s.affiliate), norm(s.name).replace(/(hd|channel|network|tv)$/, '')]) if (k && !byName.has(k)) byName.set(k, s);
+    for (const s of cache.stations) for (const k of [norm(s.callsign), norm(s.name), stationKey(s.name), stationKey(s.callsign), norm(s.affiliate), stationKey(s.name).replace(/(channel|network|tv)$/, '')]) if (k && !byName.has(k)) byName.set(k, s);
     const out = [];
     for (const c of channels || []) {
       const key = norm(c.name); if (!key) continue;
@@ -208,17 +210,24 @@ function create({ dataDir, log = () => {}, onChange = () => {} }) {
     }
     return out;
   }
+  // Both sides of the match, for a look when channels are missing from the guide.
+  function matchReport(channels, aliases = {}) {
+    const m = stationFor(channels); const used = new Set([...m.values()].map((s) => s.stationID));
+    const unmatchedWall = (channels || []).filter((c) => !m.has(norm(c.name))).map((c) => `${c.name} (${c.number || 'no #'})`);
+    const unmatchedStations = cache.stations.filter((s) => !used.has(s.stationID)).map((s) => `${s.number || '—'} ${s.callsign} · ${s.name}`);
+    return { matched: m.size, wall: (channels || []).length, stations: cache.stations.length, unmatchedWall, unmatchedStations };
+  }
   // the lineup as Schedules Direct has it, for checking the wall's numbers
   const lineupChannels = () => cache.stations.filter((s) => s.number).map((s) => ({ number: s.number, callsign: s.callsign, name: s.name, affiliate: s.affiliate })).sort((a, b) => a.number - b.number);
 
   function status() {
     return { configured: !!(cfg && cfg.username && cfg.hash), username: cfg ? cfg.username || '' : '', lineup: cfg ? cfg.lineup || null : null, lineupName: (cfg && cfg.lineupName) || cache.lineupName || null,
-      stations: cache.stations.length, airings: cache.rows.length, through: cache.through, lastOk: st.lastOk, error: st.error, busy: st.busy, ready: ready() };
+      stations: cache.stations.length, airings: cache.rows.length, through: cache.through, from: cache.rows.length ? Math.min(...cache.rows.map((r) => r.start)) : null, lastOk: st.lastOk, error: st.error, busy: st.busy, ready: ready() };
   }
   function forgetLineup() { if (!cfg) return; cfg.lineup = null; cfg.lineupName = null; saveCfg(); cache.lineup = null; cache.lineupAt = 0; cache.stations = []; cache.rows = []; cache.rowsAt = 0; cache.through = null; cache.lineupName = null; saveCache(); onChange(); }
   function forget() { cfg = null; try { fs.unlinkSync(cfgFile); } catch {} cache = { lineup: null, lineupAt: 0, stations: [], rows: [], programs: {}, rowsAt: 0, through: null }; saveCache(); st.error = null; onChange(); }
 
-  return { signIn, headends, useLineup, refresh, start, nowOn, schedule, findShow, lineupChannels, checkNumbers, status, ready, forget, forgetLineup, norm };
+  return { signIn, headends, useLineup, refresh, start, nowOn, schedule, findShow, lineupChannels, checkNumbers, matchReport, status, ready, forget, forgetLineup, norm };
 }
 
 module.exports = { create };

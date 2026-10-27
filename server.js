@@ -116,7 +116,7 @@ const SD = SD_MOD.create({ dataDir: DATA_DIR, log, onChange: () => pushWhatsOn()
 const LISTINGS = {
   nowOn: (ch) => (SD.ready() ? SD.nowOn(ch) : GUIDE.nowOn(ch)),
   schedule: (ch, a, b) => (SD.ready() ? SD.schedule(ch, a, b) : GUIDE.schedule(ch, a, b)),
-  findShow: (ch, q) => (SD.ready() ? SD.findShow(ch, q) : GUIDE.findShow(ch, q)),
+  findShow: (ch, q, limit) => (SD.ready() ? SD.findShow(ch, q, Date.now(), limit) : GUIDE.findShow(ch, q, Date.now(), limit)),
   status: () => ({ source: SD.ready() ? 'sd' : 'tvmaze', ...GUIDE.status(), sd: SD.status() }),
 };
 const statList = () => (DEMO ? demoStats : STATS.list());
@@ -451,8 +451,14 @@ const wrap = (fn) => async (req, res) => {
 };
 
 app.get('/api/state', (_req, res) => res.json(publicState()));
-app.get('/api/guide', (req, res) => { const from = Math.floor(Date.now() / 1800000) * 1800000; const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3)); res.json(LISTINGS.schedule(config.channels, from, from + hours * 3600000)); });
-app.get('/api/find-show', (req, res) => res.json(LISTINGS.findShow(config.channels, String(req.query.q || ''))));
+app.get('/api/guide', (req, res) => {
+  // from = any half hour between yesterday and the end of the listings (the guide pages by 3 hours and by day)
+  const hours = Math.min(12, Math.max(1, Number(req.query.hours) || 3));
+  const now = Math.floor(Date.now() / 1800000) * 1800000, lo = now - 86400000, hi = Math.max(Date.parse(SD.status().through || 0) || 0, now + 2 * 86400000);
+  let from = Number(req.query.from) || now; from = Math.floor(from / 1800000) * 1800000; from = Math.max(lo, Math.min(from, hi - hours * 3600000));
+  res.json({ ...LISTINGS.schedule(config.channels, from, from + hours * 3600000), now, through: hi });
+});
+app.get('/api/find-show', (req, res) => res.json(LISTINGS.findShow(config.channels, String(req.query.q || ''), Math.min(60, Math.max(1, Number(req.query.limit) || 6)))));
 app.get('/api/log', (_req, res) => res.json({ lines: LOG_RING.slice(-120), pushesThisMinute: broadcastCount, rooms: [...rooms.values()].map((r) => ({ id: r.cfg.id, box: r.box ? r.box.status : null, boxErr: r.box && r.box.lastError || null, tv: r.tv ? r.tv.status : null, link: r.sonyLink ? r.sonyLink.status : null, linkErr: r.sonyLink && r.sonyLink.lastError || null })) }));
 // ---------- smart plugs, switches and lights (Tuya Smart / Smart Life) ----------
 app.get('/api/plugs', (_req, res) => res.json({ plugs: DEMO ? demoPlugs : TUYA.devices(), tuya: TUYA.status() }));
@@ -497,6 +503,7 @@ app.post('/api/sd/refresh', wrap(async () => { await SD.refresh(true); return SD
 app.post('/api/sd/forget', wrap(async () => { SD.forget(); return SD.status(); }));
 app.post('/api/sd/forget-lineup', wrap(async () => { SD.forgetLineup(); return SD.status(); }));
 app.get('/api/sd/lineup-channels', (_req, res) => res.json({ channels: SD.lineupChannels() }));
+app.get('/api/sd/match', (_req, res) => res.json(SD.matchReport(config.channels, GUIDE.ALIASES)));
 // Compare the wall's channel numbers with the lineup; apply=true rewrites the ones that differ (names stay).
 app.post('/api/sd/check-numbers', wrap(async (req) => {
   if (!SD.ready()) throw err('the listings are not loaded yet', 409);

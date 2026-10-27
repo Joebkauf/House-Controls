@@ -166,7 +166,13 @@ input { font: inherit; color: var(--fg); background: var(--bg); border: 1px soli
 .tile.add.inl { place-items: stretch; display: grid; gap: 8px; }
 .tile.showtile .name { font-size: clamp(17px, 1.7vw, 22px); }
 /* guide */
-.grid:has(.guide) { display: block; padding: 0; }
+.grid:has(.guide), .grid:has(.gbar) { display: block; padding: 0; }
+.gbar { display: flex; gap: 8px; align-items: center; padding: 0 0 8px; }
+.gbar input { flex: 1 1 auto; min-width: 0; background: var(--tile); border: 0; border-radius: 10px; padding: 10px 12px; font: inherit; color: var(--fg); box-shadow: var(--shadow); }
+.gbar .gnav { display: flex; gap: 4px; flex: none; } .gbar .gnav .btn { padding: 9px 10px; }
+.gresults { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.gres .show .lb { margin-right: 6px; display: inline !important; }
+@media (max-width: 640px) { .gbar { flex-wrap: wrap; } .gbar input { flex-basis: 100%; } .gbar .gnav { width: 100%; justify-content: space-between; } .gbar .gnav .btn { flex: 1; } .gresults { grid-template-columns: 1fr 1fr; } }
 .guide { --gch: 150px; position: relative; overflow: auto; max-height: 100%; background: var(--panel); border-radius: 16px; }
 .grow { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); min-height: 52px; }
 .grow.live .gch { box-shadow: inset 4px 0 0 var(--accent); }
@@ -926,17 +932,33 @@ function renderPlugs() {
     </button>`).join('')).join('') + (tu.error ? `<p class="empty">Last Tuya answer: ${esc(tu.error)}</p>` : ''));
 }
 // ---------- the guide: a time grid of what is on ----------
-let guideData = null, guideAt = 0, guideFetching = false;
+let guideData = null, guideAt = 0, guideFetching = false, guideFrom = 0, guideFetchedFrom = null;
+let guideQuery = '', guideResults = null, guideSearchTimer = null;
 function loadGuide() {
-  if (guideFetching || (guideData && Date.now() - guideAt < 5 * 60000)) return;
+  const want = guideFrom || 0;
+  if (guideFetching || (guideData && guideFetchedFrom === want && Date.now() - guideAt < 5 * 60000)) return;
   guideFetching = true;
-  api('/api/guide?hours=3').then((d) => { guideData = d; guideAt = Date.now(); }).catch(() => { guideData = guideData || { from: Date.now(), to: Date.now(), channels: [] }; guideAt = Date.now(); }).then(() => { guideFetching = false; if (tab === 'guide') render(); });
+  api(`/api/guide?hours=3${want ? `&from=${want}` : ''}`).then((d) => { guideData = d; guideAt = Date.now(); guideFetchedFrom = want; if (want && d.from) guideFrom = d.from; }).catch(() => { guideData = guideData || { from: Date.now(), to: Date.now(), channels: [] }; guideAt = Date.now(); guideFetchedFrom = want; }).then(() => { guideFetching = false; if (tab === 'guide') render(); });
+}
+function guideSearch(q) {
+  guideQuery = q; clearTimeout(guideSearchTimer);
+  if (!q.trim()) { guideResults = null; return render(); }
+  guideSearchTimer = setTimeout(() => api(`/api/find-show?q=${encodeURIComponent(q.trim())}&limit=60`).then((d) => { if (guideQuery === q) { guideResults = d; render(); } }).catch(() => {}), 250);
 }
 function renderGuide(b) {
   loadGuide();
   const g = $('#grid');
-  if (!guideData) { setHTML(g, '<p class="empty">Reading the listings…</p>'); return; }
-  const now = Date.now(), from = Math.floor(now / 1800000) * 1800000, to = from + 3 * 3600000, PX = 4; // px per minute
+  // the toolbar is the grid's first child and never changes, so a redraw keeps the search box and its focus
+  const bar = `<div class="gbar"><input id="gq" type="search" placeholder="Search the listings: a show, a movie, a team" autocomplete="off" enterkeyhint="search"><span class="gnav"><button class="btn" data-gnav="-180" type="button" aria-label="Three hours earlier">◀</button><button class="btn" data-gnav="now" type="button">Now</button><button class="btn" data-gnav="180" type="button" aria-label="Three hours later">▶</button><button class="btn" data-gnav="1440" type="button">Next day ▶</button></span></div>`;
+  if (guideQuery.trim()) {
+    const r = guideResults; const hits = r ? [...r.now.map((h) => ({ ...h, on: true })), ...r.next] : null;
+    setHTML(g, bar + `<div class="gresults">${!hits ? '<p class="empty">Looking…</p>' : !hits.length ? `<p class="empty">Nothing called “${esc(guideQuery.trim())}” in the ${state.guide && state.guide.source === 'sd' ? 'next week' : 'free listings'}.</p>` : hits.map((h) => `<button class="tile gres ${h.on ? 'live' : ''}" data-tune="${esc(h.number)}" type="button"><span class="top"><span class="name">${esc(h.title)}</span></span><span class="show">${h.on ? '<span class="lb">On now</span>' : `<span class="lb">${esc(fmtWhen(h.start))}</span>`}${esc(h.channel)} · CH ${esc(h.number)}${h.new ? ' · new' : ''}</span></button>`).join('')}</div>`);
+    const inp = $('#gq'); if (inp && inp.value !== guideQuery) inp.value = guideQuery;
+    return;
+  }
+  if (!guideData) { setHTML(g, bar + '<p class="empty">Reading the listings…</p>'); return; }
+  const now = Date.now(), from = guideData.from || Math.floor(now / 1800000) * 1800000, to = guideData.to || from + 3 * 3600000, PX = 4; // px per minute
+  const dayLabel = new Date(from).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }) + ' · ' + new Date(from).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '–' + new Date(to).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const width = (to - from) / 60000 * PX;
   const favSet = new Set(state.channels.filter((c) => isFav(c)).map((c) => norm0(c.name)));
   const rows = guideData.channels.slice().sort((a, z) => (favSet.has(norm0(z.name)) - favSet.has(norm0(a.name))) || (Number(a.number) - Number(z.number)));
@@ -954,11 +976,12 @@ function renderGuide(b) {
       <div class="gprogs" style="width:${width}px">${blocks}</div>
     </div>`;
   }).join('');
-  setHTML(g, `<div class="guide">
-    <div class="grow ghead"><div class="gch lbl">${rows.length} channels${favSet.size ? ` · ★ ${esc(personName() === 'the house' ? 'house' : personName())} first` : ''}</div><div class="gprogs gticks" style="width:${width}px">${ticks.join('')}</div></div>
-    ${body || '<p class="empty">No listings yet for your channels. The bridge reads them every half hour.</p>'}
-    <div class="gnow" style="left:calc(var(--gch) + ${(now - from) / 60000 * PX}px)"></div>
+  setHTML(g, bar + `<div class="guide">
+    <div class="grow ghead"><div class="gch lbl">${esc(dayLabel)}<br>${rows.length} channels${favSet.size ? ` · ★ ${esc(personName() === 'the house' ? 'house' : personName())} first` : ''}</div><div class="gprogs gticks" style="width:${width}px">${ticks.join('')}</div></div>
+    ${body || '<p class="empty">No listings for this time. The bridge reads a week ahead when Schedules Direct is signed in.</p>'}
+    ${now >= from && now < to ? `<div class="gnow" style="left:calc(var(--gch) + ${(now - from) / 60000 * PX}px)"></div>` : ''}
   </div>`);
+  const inp = $('#gq'); if (inp && inp.value !== guideQuery) inp.value = guideQuery;
 }
 function favHeader() {
   const people = state.people || [];
@@ -1230,6 +1253,7 @@ document.addEventListener('pointerdown', (e) => {
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => document.addEventListener(ev, stopRepeat));
 
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'gq') guideSearch(e.target.value); });
 document.addEventListener('click', (e) => {
   const t = e.target;
   const btn = (sel) => t.closest(sel);
@@ -1243,6 +1267,11 @@ document.addEventListener('click', (e) => {
   if ((el = btn('[data-plug]'))) {
     const on = el.dataset.on !== '1'; el.dataset.on = on ? 1 : 0; el.classList.toggle('live', on); $('.show', el).textContent = on ? 'Turning on…' : 'Turning off…';
     return api(`/api/plugs/${el.dataset.plug}`, { on }).catch((err) => { toast(err.message, 5000); render(); });
+  }
+  if ((el = btn('[data-gnav]'))) {
+    const v = el.dataset.gnav; const cur = (guideData && guideData.from) || Math.floor(Date.now() / 1800000) * 1800000;
+    guideFrom = v === 'now' ? 0 : cur + Number(v) * 60000; guideFetchedFrom = null; guideData = guideFrom ? guideData : null; guideAt = 0;
+    return render();
   }
   if ((el = btn('[data-stat]'))) {
     const id = el.dataset.stat, act = el.dataset.act;
