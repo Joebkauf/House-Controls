@@ -1362,9 +1362,9 @@ document.addEventListener('click', (e) => {
     el.disabled = true; el.textContent = 'Loading…'; toast('Loading the listings; the first time takes a minute', 6000);
     return api('/api/sd/lineup', { lineup: el.dataset.sdlineup, name: el.dataset.sdname }).then(() => { sdLineups = null; return refreshState(); }).then(() => { renderSheet(true); toast('Listings loaded', 4000); }).catch((err) => { toast(err.message, 8000); renderSheet(true); });
   }
-  if (btn('#sdLineupChange')) { return api('/api/sd/forget-lineup').catch(() => null).then(() => { sdLineups = null; return refreshState(); }).then(() => renderSheet(true)); }
-  if (btn('#sdRefresh')) { toast('Refreshing the listings…', 4000); return api('/api/sd/refresh').then(() => refreshState()).then(() => { renderSheet(true); toast('Listings refreshed'); }).catch((err) => toast(err.message, 8000)); }
-  if (btn('#sdForget')) { return kmgConfirmLite('Sign out of Schedules Direct on the bridge? The guide goes back to the free feed.').then((ok) => { if (!ok) return; return api('/api/sd/forget').then(() => refreshState()).then(() => { sdLineups = null; renderSheet(true); }).catch((err) => toast(err.message, 8000)); }); }
+  if (btn('#sdLineupChange')) { return api('/api/sd/forget-lineup', {}).catch((err) => toast(err.message, 6000)).then(() => { sdLineups = null; return refreshState(); }).then(() => renderSheet(true)); }
+  if (btn('#sdRefresh')) { toast('Refreshing the listings…', 4000); return api('/api/sd/refresh', {}).then(() => refreshState()).then(() => { renderSheet(true); toast('Listings refreshed'); }).catch((err) => toast(err.message, 8000)); }
+  if (btn('#sdForget')) { return kmgConfirmLite('Sign out of Schedules Direct on the bridge? The guide goes back to the free feed.').then((ok) => { if (!ok) return; return api('/api/sd/forget', {}).then(() => refreshState()).then(() => { sdLineups = null; renderSheet(true); }).catch((err) => toast(err.message, 8000)); }); }
   if (btn('#sdFix')) {
     sdNote = 'Checking…'; renderSheet(true);
     return api('/api/sd/check-numbers', {}).then((r) => {
