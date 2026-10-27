@@ -548,7 +548,10 @@ async function api(path, body) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+let loadedVersion = null;
 function applyState(s) {
+  // the bridge restarted on a newer version: this page is the old one; fetch the new one (once things are quiet)
+  if (s && s.version) { if (!loadedVersion) loadedVersion = s.version; else if (s.version !== loadedVersion && !document.activeElement?.matches?.('input, textarea')) { setTimeout(() => location.reload(), 1500); } }
   state = s;
   if (!state.boxes.find((b) => b.id === current)) current = state.boxes[0] ? state.boxes[0].id : null;
   render();
